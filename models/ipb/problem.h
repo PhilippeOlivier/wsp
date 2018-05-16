@@ -35,7 +35,7 @@ public:
 private:
     void InitializeVariables();
     void LoadData(char* filename);
-    void OptimizeBinLoads();
+    void OptimizeBinLoadBounds();
     void GenerateInitialColumns();
 
     void SolveRelaxation();
@@ -77,16 +77,13 @@ private:
     IloNumArray pattern_deviations_;
 
     // Branch and price variables
-    IloBoolArray columns_fixed_at_0_; // Current partially integral solution
-    IloBoolArray columns_fixed_at_1_; // Idem
-    IloInt branching_column_;
-    IloNum cp_solution_;
-    IloNum cp_solution_deviation_;
+
+    //IloInt branching_column_;
     IloNum lower_bound_;
     IloNum lower_bound_deviation_;
     IloNum upper_bound_;
     IloNum upper_bound_deviation_;
-    int fractional_columns_;
+    //int fractional_columns_;
 
     // Flags
     bool relaxed_solution_is_feasible_;

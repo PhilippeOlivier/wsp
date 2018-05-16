@@ -26,6 +26,8 @@
 # w1,w2,w3,wn
 # matrix
 
+# instances are named .wsp. Also, no pickle
+
 ################################################################################
 
 
@@ -33,17 +35,17 @@
 
 min_item_weight = 1
 max_item_weight = 8
-num_items = 50
+num_items = 25
 
 p = 0.25 # Probability of c<0
 q = 0.25 # Probability of c>0
-r = 0.0 # Probability of conflict
+r = 0.25 # Probability of conflict
 conflict = 9999
 
 min_cost = -5
 max_cost = 5
 num_matrices = 5
-convert_to_wsp = False
+convert_to_wsp = True
 
 # add avg load per table when fixed number of tables
 
