@@ -192,6 +192,10 @@ void Problem::GenerateInitialColumns() {
 					      0,
 					      IloScalProd(columns_, pattern_deviations_),
 					      max_deviation_));
+    zeta_ = IloAdd(master_problem_, IloRange(env_,
+					     num_bins_,
+					     IloSum(columns_),
+					     num_bins_));
 
     // Add the new columns to the model
     for (int i=0; i<num_bins_; i++) {
@@ -249,6 +253,11 @@ void Problem::SolveSubproblem() {
 						      min_deviation_,
 						      IloScalProd(columns_, pattern_deviations_),
 						      IloInfinity));
+	    master_problem_.remove(zeta_);
+	    zeta_ = IloAdd(master_problem_, IloRange(env_,
+						     num_bins_,
+						     IloSum(columns_),
+						     num_bins_));
 	    master_solver_.solve();
 	    if (!master_solver_.isPrimalFeasible()) {
 		relaxed_solution_is_feasible_ = false;
@@ -278,6 +287,7 @@ void Problem::SolveSubproblem() {
 
 	    IloNum gamma_dual = master_solver_.getDual(gamma_);
 	    IloNum delta_dual = master_solver_.getDual(delta_);
+	    IloNum zeta_dual = master_solver_.getDual(zeta_);
 
 	    IloNumExpr obj2(env_);
 	    if (norm_ == 1) {
@@ -298,7 +308,7 @@ void Problem::SolveSubproblem() {
 	    }
 	    
 	    IloNumExpr obj3(env_);
-	    obj3 = IloScalProd(z, price);
+	    obj3 = IloScalProd(z, price)+zeta_dual;
 
 	    sub_objective.setExpr(obj3+obj2-obj1);
 	    sub_solver.solve();
@@ -392,7 +402,7 @@ IloNum Problem::ComputePatternDeviation(IloNumArray pattern) {
 
 void Problem::SolveIntegrality() {
     try {
-	master_problem_.add(IloSum(columns_) == num_bins_);
+
     master_problem_.add(IloConversion(env_, columns_, ILOINT));
 
 
@@ -407,6 +417,11 @@ void Problem::SolveIntegrality() {
 					      IloScalProd(columns_, pattern_deviations_),
 					      IloInfinity));
     
+    	    master_problem_.remove(zeta_);
+	    zeta_ = IloAdd(master_problem_, IloRange(env_,
+						     num_bins_,
+						     IloSum(columns_),
+						     num_bins_));
     master_solver_.solve();
     // THIS IS ALWAYS feasible since we start with a feasible solution with the CP model
 //    if (master_solver_.isPrimalFeasible()) {

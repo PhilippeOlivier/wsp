@@ -70,6 +70,7 @@ private:
     //IloNumExprArg master_deviation_;
     IloRangeArray x_;
     IloRange gd;
+    IloRange zeta_;
     IloRange gamma_;
     IloRange delta_;
     IloNumVarArray columns_;
