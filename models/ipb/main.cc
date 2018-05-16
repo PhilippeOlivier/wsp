@@ -1,10 +1,5 @@
-#include <ilcp/cp.h>
-#include <ilcplex/ilocplex.h>
-#include <iomanip>
 #include <iostream>
 #include "problem.h"
-#include <stdlib.h>
-#include <vector>
 ILOSTLBEGIN
 
 
@@ -13,9 +8,8 @@ void Help();
 
 int main(int argc, char* argv[]) {
     char* filename;
-    IloInt norm = 1;
+    IloInt norm;
     IloNum time_limit = IloNumMax;
-
     IloInt num_bins;
     IloInt min_deviation = 0;
     IloInt max_deviation = IloIntMax;
@@ -51,34 +45,33 @@ int main(int argc, char* argv[]) {
 	}
 
     }
-    if ((argc < 2) ||
-	(num_bins <= 0) ||
+    if ((num_bins <= 0) ||
 	(min_deviation < 0) ||
 	(max_deviation < min_deviation) ||
-	(norm != 1 && norm != 2) ||
+	(norm != 1 && norm != 2 && norm != 3) ||
 	(time_limit < 0)) {
 	Help();
 	exit(0);
     }
 
     
-    Problem *best = new Problem(filename,
-				num_bins,
-				norm,
-				min_deviation,
-				max_deviation,
-				time_limit);
+    Problem *bestproblem = new Problem(filename,
+				       num_bins,
+				       norm,
+				       min_deviation,
+				       max_deviation,
+				       time_limit);
 
-    best->DisplaySolution();
+    bestproblem->DisplaySolution();
     
     return 0;
 }
 
 
 void Help() {
-    cout << "At a minimum, a filename and a number of bins must be specified."
+    cout << "At a minimum, a filename, a number of bins, and a norm must be specified."
 	 << endl;
-    cout << "./wsp [options]"
+    cout << "./ipb [options]"
 	 << endl;
     cout << "-bins [number of bins]"
 	 << endl;
@@ -88,10 +81,10 @@ void Help() {
 	 << endl;
     cout << "-maxdev [maximum cumulative deviation (default unbounded)]"
 	 << endl;
-    cout << "-norm [1 for L1 or 2 for L2 (default L1-norm)]"
+    cout << "-norm [1 for L1-deviation, 2 for L2-deviation, 3 for Li-deviation]"
 	 << endl;
     cout << "-timelimit [cutoff in seconds (default unlimited)]"
 	 << endl;
-    cout << "Example: ./wsp -file myinstance.wpn -bins 22 -maxdev 7"
+    cout << "Example: ./ipb -file myinstance.wpn -bins 22 -norm 2"
 	 << endl;
 }

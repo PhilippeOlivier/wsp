@@ -2,8 +2,8 @@
 #define PROBLEM_H_
 
 
-#include <chrono>
 #include <algorithm>
+#include <chrono>
 #include <ilcp/cp.h>
 #include <ilcplex/ilocplex.h>
 #define RC_EPS 1.0e-6
