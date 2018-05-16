@@ -17,7 +17,6 @@ int main(int argc, char* argv[]) {
     char* filename;
     IloNum gap = 0.01;
     IloInt norm = 1;
-    bool pareto = true;
     IloNum time_limit = IloNumMax;
 
     IloInt num_bins;
@@ -56,9 +55,6 @@ int main(int argc, char* argv[]) {
 	    i++;
 	    norm = atoi(argv[i]);
 	}
-	else if (!strcmp(argv[i], "-nopareto")) {
-	    pareto = false;
-	}
 	else if (!strcmp(argv[i], "-timelimit")) {
 	    i++;
 	    time_limit = atof(argv[i]);
@@ -82,7 +78,6 @@ int main(int argc, char* argv[]) {
 				norm,
 				min_deviation,
 				max_deviation,
-				pareto,
 				time_limit);
 
     best->DisplaySolution();
@@ -110,8 +105,6 @@ void Help() {
     cout << "-maxdev [maximum cumulative deviation (default unbounded)]"
 	 << endl;
     cout << "-norm [1 for L1 or 2 for L2 (default L1-norm)]"
-	 << endl;
-    cout << "-nopareto (option to remove Pareto; default: Pareto is on)"
 	 << endl;
     cout << "-timelimit [cutoff in seconds (default unlimited)]"
 	 << endl;

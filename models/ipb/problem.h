@@ -17,7 +17,6 @@ public:
 	    IloInt norm,
 	    IloInt min_deviation,
 	    IloInt max_deviation,
-	    bool pareto,
 	    IloNum time_limit);
     ~Problem();
 
@@ -30,7 +29,6 @@ public:
     IloInt GetMinDeviation();
     IloInt GetMaxDeviation();
     IloInt GetNorm();
-    bool GetPareto();
 
     void DisplaySolution();
 
@@ -52,7 +50,6 @@ private:
     IloInt min_deviation_;
     IloInt max_deviation_;
     IloInt norm_;
-    bool pareto_;
     IloNum time_limit_;
     std::chrono::time_point<std::chrono::high_resolution_clock> time_start_;
     

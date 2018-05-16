@@ -8,7 +8,6 @@ Problem::Problem(char* filename,
 		 IloInt norm,
 		 IloInt min_deviation,
 		 IloInt max_deviation,
-		 bool pareto,
 		 IloNum time_limit) {
     time_start_ = std::chrono::high_resolution_clock::now();
     InitializeVariables();
@@ -21,7 +20,6 @@ Problem::Problem(char* filename,
     norm_ = norm;
     min_deviation_ = min_deviation;
     max_deviation_ = max_deviation;
-    pareto_ = pareto;
     time_limit_ = time_limit;
 
     // Bin load bounds are optimized if possible
@@ -199,16 +197,10 @@ void Problem::GenerateInitialColumns() {
 	    IloNum pattern_cost = ComputePatternCost(new_pattern);
 	    IloNum pattern_deviation = ComputePatternDeviation(new_pattern);
 	    pattern_deviations_.add(pattern_deviation);
-	    if (pareto_) {
-		columns_.add(IloNumVar(master_objective_(pattern_cost) +
-				       x_(new_pattern)));
-		cp_solution_ += pattern_cost;
-	    }
-	    else {
-		columns_.add(IloNumVar(master_objective_(pattern_cost+pattern_deviation)
-				       + x_(new_pattern)));
-		cp_solution_ += pattern_cost + pattern_deviation;
-	    }
+
+	    columns_.add(IloNumVar(master_objective_(pattern_cost) +
+				   x_(new_pattern)));
+	    cp_solution_ += pattern_cost;
 	    columns_fixed_at_0_.add(IloFalse);
 	    columns_fixed_at_1_.add(IloFalse);
 	    cp_solution_deviation_ += pattern_deviation;
@@ -325,21 +317,13 @@ void Problem::SolveSubproblem() {
 	    IloNumExpr obj3(env_);
 	    obj3 = IloScalProd(z, price);
 
-	    if (pareto_) {
-		sub_objective.setExpr(obj3+obj2-obj1);
-	    }
-	    else {
-		sub_objective.setExpr(obj3-obj2-obj1); // Not sure that this is correct
-	    }
+	    sub_objective.setExpr(obj3+obj2-obj1);
 	    sub_solver.solve();
 
 	    bool new_column_added = false;
 	    for (int i=0; i<sub_solver.getSolnPoolNsolns(); i++) {
-		if ((pareto_) ?
-		    (sub_solver.getValue(obj1, i) <=
-		     sub_solver.getValue(obj3, i)+sub_solver.getValue(obj2, i)-RC_EPS) :
-		    (sub_solver.getValue(obj1, i)+sub_solver.getValue(obj2, i) <=
-		     sub_solver.getValue(obj3, i)-RC_EPS)) {
+		if ((sub_solver.getValue(obj1, i) <=
+		     sub_solver.getValue(obj3, i)+sub_solver.getValue(obj2, i)-RC_EPS)) {
 		    IloNumArray new_pattern(env_, num_items_);
 		    sub_solver.getValues(new_pattern, z, i);
 
@@ -375,15 +359,8 @@ void Problem::SolveSubproblem() {
 			IloNum pattern_cost = ComputePatternCost(new_pattern);
 			IloNum pattern_deviation = ComputePatternDeviation(new_pattern);
 			pattern_deviations_.add(pattern_deviation);
-			if (pareto_) {
-			    columns_.add(IloNumVar(master_objective_(pattern_cost) +
-						   x_(new_pattern)));
-			}
-			else {
-			    columns_.add(IloNumVar(master_objective_(pattern_cost +
-								     pattern_deviation)
-						   + x_(new_pattern)));
-			}
+			columns_.add(IloNumVar(master_objective_(pattern_cost) +
+					       x_(new_pattern)));
 			columns_fixed_at_0_.add(IloFalse);
 			columns_fixed_at_1_.add(IloFalse);
 		    }
@@ -515,10 +492,6 @@ IloInt Problem::GetNorm() {
 }
 
 
-bool Problem::GetPareto() {
-    return pareto_;
-}
-
 
 void Problem::DisplaySolution() {
     /*cout << "Relaxed solution is "
@@ -555,12 +528,7 @@ void Problem::DisplaySolution() {
 	 << ")"
 	 << endl;
 */  
-    if (pareto_) {
 	cout << "Pareto LB: ";
-    }
-    else {
-	cout << "Non-Pareto LB: ";
-    }
     cout << lower_bound_
 	 << " (dev. "
 	 << lower_bound_deviation_
@@ -573,14 +541,12 @@ void Problem::DisplaySolution() {
 	 << columns_.getSize()
 	 << endl;
 */
-    if (pareto_) {
 	cout << "Integral solution: "
 	     << upper_bound_
 	     << " (dev. "
 	     << upper_bound_deviation_
 	     << ")"
 	     << endl;
-    }
 
     cout << "Time elapsed (s): "
 	 << (std::chrono::duration<double>(std::chrono::high_resolution_clock::now()
