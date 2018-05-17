@@ -30,6 +30,7 @@ private:
     IloNum ComputePatternCost(IloNumArray pattern);
     IloNum ComputePatternDeviation(IloNumArray pattern);
     void SolveRelaxationIp();
+    void SolveRelaxationCp();
     void SolveIntegrality();
     
     // Parameters

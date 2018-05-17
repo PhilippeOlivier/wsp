@@ -34,7 +34,7 @@ Problem::Problem(char* filename,
     }
 
     GenerateInitialColumns();
-    SolveRelaxationIp();
+    SolveRelaxationCp();
     SolveIntegrality();
 }
 
@@ -231,8 +231,8 @@ void Problem::SolveRelaxationIp() {
 
 	IloModel sub_problem(env_);
 	IloCplex sub_solver(sub_problem);
-	IloObjective sub_objective = IloAdd(sub_problem, IloMaximize(env_));
 	sub_solver.setOut(env_.getNullStream()); // Supress Cplex output
+	IloObjective sub_objective = IloAdd(sub_problem, IloMaximize(env_));
 	IloNumVarArray z(env_, num_items_, 0, 1, ILOINT);
 	
 	// Auxiliary variable: Beta (deviation)
@@ -347,6 +347,163 @@ void Problem::SolveRelaxationIp() {
 	    
 	// If no new column is added, no constraints were violated
 	if (new_column_added == false) break;
+    }
+}
+
+
+void Problem::SolveRelaxationCp() {
+    while (true) {
+	// Update the constraints by taking into account newly added columns
+	master_problem_.remove(zeta_);
+	zeta_ = IloAdd(master_problem_, IloRange(env_,
+						 num_bins_,
+						 IloSum(columns_),
+						 num_bins_));
+	//TODO: Li modify this
+	master_problem_.remove(delta_);
+	delta_ = IloAdd(master_problem_, IloRange(env_,
+						  0,
+						  IloScalProd(columns_,
+							      pattern_deviations_),
+						  d_max_));
+	master_problem_.remove(gamma_);
+	gamma_ = IloAdd(master_problem_, IloRange(env_,
+						  d_min_,
+						  IloScalProd(columns_,
+							      pattern_deviations_),
+						  IloInfinity));
+
+	master_solver_.solve();
+	lower_bound_ = master_solver_.getObjValue();
+	lower_bound_deviation_ = master_solver_.getValue(IloScalProd(columns_,
+								     pattern_deviations_));
+
+	if ((std::chrono::duration<double>(std::chrono::high_resolution_clock::now()
+					   - time_start_).count()) > time_limit_) break;
+	
+	IloModel sub_problem(env_);
+	IloCP sub_solver(sub_problem);
+	sub_solver.setOut(env_.getNullStream()); // Supress Cplex output
+	IloObjective sub_objective = IloAdd(sub_problem, IloMaximize(env_));
+	IloIntVarArray z(env_, num_items_, 0, 1);
+
+	// Auxiliary variable: Beta (deviation)
+	IloNumVar beta(env_);
+	sub_problem.add(IloAbs(mean_load_-IloScalProd(z, weights_)) == beta);
+	    
+	// Constraints: Bin loads
+	sub_problem.add(IloScalProd(weights_, z) >= min_load_);
+	sub_problem.add(IloScalProd(weights_, z) <= max_load_);
+	
+	// Constraints: Conflicting items
+	for (int i=0; i<num_items_-1; i++) {
+	    for (int j=i+1; j<num_items_; j++) {
+		if (costs_[i][j] == CONFLICT) {
+		    sub_problem.add(z[i] != z[j]);
+		}
+	    }
+	}
+
+	// Dual values
+	IloNumArray y(env_, num_items_);
+	master_solver_.getDuals(y, x_);
+	IloNum zeta = master_solver_.getDual(zeta_);
+	IloNum gamma = master_solver_.getDual(gamma_);
+	IloNum delta = master_solver_.getDual(delta_);
+
+	IloNumExpr obj1(env_);
+	obj1 = IloScalProd(z, y);
+
+	IloNumExpr obj2(env_);
+	obj2 += zeta;
+
+	IloNumExpr obj3(env_);
+	if (norm_ == 1) {
+	    obj3 = beta*(gamma+delta);
+	}
+	else if (norm_ == 2) {
+	    obj3 = beta*beta*(gamma+delta);
+	}
+	//TODO: Li modify this
+	else if (norm_ == 3) {
+	    obj3 = beta*(gamma+delta);
+	}
+	
+	IloNumExpr obj4(env_);
+	for (int i=0; i<num_items_-1; i++) {
+	    for (int j=i+1; j<num_items_; j++) {
+		obj4 += z[i]*z[j]*costs_[i][j];
+	    }
+	}
+
+	// Objectives
+	// TODO: Li modify this
+	if ((gamma+delta) <= 0) {
+	    sub_objective.setExpr(obj1+obj2+obj3-obj4);
+	}
+	else if ((gamma+delta) > 0) {
+	    sub_objective.setExpr(obj1+obj2-obj3-obj4);
+	}
+
+	sub_solver.startNewSearch();
+
+	bool new_column_added = false;
+	cout << "START" <<endl;
+	while (sub_solver.next()) {
+	    cout << "IN LOOLP" <<endl;
+	    // TODO: make sure the model is correct since he does not seem to find a single solution
+	    if ((sub_solver.getValue(obj1)+
+	    	 sub_solver.getValue(obj2)+
+	    	 sub_solver.getValue(obj3)
+	    	 >
+	    	 sub_solver.getValue(obj4))) {
+
+		IloNumArray new_pattern(env_, num_items_);
+		sub_solver.getValues(z, new_pattern);
+
+		// Ensure that patterns are really integral
+		for (int j=0; j<num_items_; j++) {
+		    if ((new_pattern[j] >= 0-RC_EPS) &&
+			(new_pattern[j] <= 0+RC_EPS)) {
+			new_pattern[j] = 0;
+		    }
+		    else if ((new_pattern[j] >= 1-RC_EPS) &&
+			     (new_pattern[j] <= 1+RC_EPS)) {
+			new_pattern[j] = 1;
+		    }
+		}
+
+		// Prevent an existing pattern from being recreated
+		bool already_exists = false;
+		for (int j=0; j<patterns_.getSize(); j++) {
+		    int similarity = 0;
+		    for (int k=0; k<num_items_; k++) {
+			if (new_pattern[k] == patterns_[j][k]) {
+			    similarity++;
+			}
+		    }
+		    if (similarity == num_items_) {
+			already_exists = true;
+			break;
+		    }
+		}
+		if (already_exists == false) {
+		    new_column_added = true;
+		    patterns_.add(new_pattern);
+		    IloNum pattern_cost = ComputePatternCost(new_pattern);
+		    IloNum pattern_deviation = ComputePatternDeviation(new_pattern);
+		    pattern_deviations_.add(pattern_deviation);
+		    columns_.add(IloNumVar(master_objective_(pattern_cost) +
+					   x_(new_pattern)));
+		}
+	    }
+	}
+	    
+	// If no new column is added, no constraints were violated
+	if (new_column_added == false) {
+	    sub_solver.endSearch();
+	    break;
+	}
     }
 }
 
