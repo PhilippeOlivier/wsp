@@ -63,34 +63,21 @@ void Problem::InitializeVariables() {
 // Load data from a .wsp instance
 void Problem::LoadData(char* filename) {
     ifstream f(filename, ios::in);
-    string line;
     int n;
     char c;
 
-    f >> line >> n >> c >> num_items_;
+    f >> num_items_;
     for (int i=0; i<num_items_; i++) {
-	f >> line;
-	weights_.add(count(line.begin(), line.end(), ','));
+	f >> n;
+	weights_.add(n);
+	f >> c;
     }
-    for (int i=0; i<num_items_; i++) {
-	f >> line;
-    }
+
     for (int i=0; i<num_items_; i++) {
 	costs_.add(IloIntArray(env_));
 	for (int j=0; j<num_items_; j++) {
 	    f >> n;
-	    if (n == 1) {
-		costs_[i].add(1);
-	    }
-	    else if (n == 2) {
-		costs_[i].add(CONFLICT);
-	    }
-	    else if (n == 3) {
-		costs_[i].add(-1);
-	    }
-	    else {
-		costs_[i].add(0);
-	    }
+	    costs_[i].add(n);
 	    f >> c;
 	}
     }
@@ -112,9 +99,9 @@ void Problem::OptimizeBinLoadBounds() {
 					       (num_bins_-1)/num_bins_));
     }
     else if (norm_ == 3) {
-	min_load_ = (int)max((double)0,
-			     (double)ceil(mean_load_-d_max_));
-	max_load_ = (int)floor(mean_load_-d_max_);
+    	min_load_ = (int)max((double)0,
+    			     (double)ceil(mean_load_-d_max_));
+    	max_load_ = (int)floor(mean_load_+d_max_);
     }
 }
 
@@ -139,7 +126,7 @@ void Problem::GenerateInitialColumns() {
 			 initial_columns,
 			 weights_,
 			 IloIntExpr(env_, num_bins_)));
-	
+
     IloNumExprArray bin_deviations = IloNumExprArray(env_);
     if (norm_ == 1) {
 	for (int i=0; i<num_bins_; i++) {
@@ -168,34 +155,31 @@ void Problem::GenerateInitialColumns() {
     cp_solver.setParameter(IloCP::TimeLimit, time_limit_);
     cp_solver.setOut(env_.getNullStream()); // Supress Cplex output
     if (!cp_solver.solve()) {
-	cout << "No solution exists." << endl;
-	cout << (std::chrono::duration<double>(std::chrono::high_resolution_clock::now()
-					       - time_start_).count())
-	     << endl;
+	std::cout << "No solution exists." << std::endl;
+	std::cout << (std::chrono::duration<double>(std::chrono::high_resolution_clock::now()
+						    - time_start_).count())
+		  << std::endl;
 	exit(0);
     }
-
+    
     // Master problem constraints
     x_ = IloAdd(master_problem_, IloRangeArray(env_,
 					       num_items_,
 					       1,
 					       1));
-    
     zeta_ = IloAdd(master_problem_, IloRange(env_,
 					     num_bins_,
 					     IloSum(columns_),
 					     num_bins_));
-    
+    //TODO: Li modify this
     gamma_ = IloAdd(master_problem_, IloRange(env_,
 					      d_min_,
 					      IloScalProd(columns_, pattern_deviations_),
 					      IloInfinity));
-
     delta_ = IloAdd(master_problem_, IloRange(env_,
 					      0,
 					      IloScalProd(columns_, pattern_deviations_),
 					      d_max_));
-
 
     // Add the new columns to the model
     for (int i=0; i<num_bins_; i++) {
@@ -223,6 +207,7 @@ void Problem::SolveRelaxationIp() {
 						 num_bins_,
 						 IloSum(columns_),
 						 num_bins_));
+	//TODO: Li modify this
 	master_problem_.remove(delta_);
 	delta_ = IloAdd(master_problem_, IloRange(env_,
 						  0,
@@ -275,11 +260,9 @@ void Problem::SolveRelaxationIp() {
 	IloNum gamma = master_solver_.getDual(gamma_);
 	IloNum delta = master_solver_.getDual(delta_);
 
-	//IloNumExpr obj1(IloScalProd(z, y));
 	IloNumExpr obj1(env_);
 	obj1 = IloScalProd(z, y);
 
-        //IloNumExpr obj2(env_, zeta);
 	IloNumExpr obj2(env_);
 	obj2 += zeta;
 
@@ -290,6 +273,7 @@ void Problem::SolveRelaxationIp() {
 	else if (norm_ == 2) {
 	    obj3 = beta*beta*(gamma+delta);
 	}
+	//TODO: Li modify this
 	else if (norm_ == 3) {
 	    obj3 = beta*(gamma+delta);
 	}
@@ -302,6 +286,7 @@ void Problem::SolveRelaxationIp() {
 	}
 
 	// Objectives
+	// TODO: Li modify this
 	if ((gamma+delta) <= 0) {
 	    sub_objective.setExpr(obj1+obj2+obj3-obj4);
 	}
@@ -402,13 +387,12 @@ void Problem::SolveIntegrality() {
 					     num_bins_,
 					     IloSum(columns_),
 					     num_bins_));
-    
+    //TODO: Li modify this
     master_problem_.remove(delta_);
     delta_ = IloAdd(master_problem_, IloRange(env_,
 					      0,
 					      IloScalProd(columns_, pattern_deviations_),
 					      d_max_));
-    
     master_problem_.remove(gamma_);
     gamma_ = IloAdd(master_problem_, IloRange(env_,
 					      d_min_,
