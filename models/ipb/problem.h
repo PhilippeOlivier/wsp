@@ -15,21 +15,10 @@ public:
     Problem(char* filename,
 	    IloInt num_bins,
 	    IloInt norm,
-	    IloInt min_deviation,
-	    IloInt max_deviation,
+	    IloInt d_min,
+	    IloInt d_max,
 	    IloNum time_limit);
     ~Problem();
-
-    IloNum GetLowerBound();
-    IloNum GetUpperBound();
-
-    bool IsFeasible();
-    bool IsIntegral();
-
-    IloInt GetMinDeviation();
-    IloInt GetMaxDeviation();
-    IloInt GetNorm();
-
     void DisplaySolution();
 
 private:
@@ -38,17 +27,14 @@ private:
     void OptimizeBinLoadBounds();
     void GenerateInitialColumns();
 
-    void SolveRelaxation();
-    void SolveIntegrality();
-    
-    void SolveSubproblem();
     IloNum ComputePatternCost(IloNumArray pattern);
     IloNum ComputePatternDeviation(IloNumArray pattern);
-    void BranchingHeuristic();
-
+    void SolveRelaxationIp();
+    void SolveIntegrality();
+    
     // Parameters
-    IloInt min_deviation_;
-    IloInt max_deviation_;
+    IloInt d_min_;
+    IloInt d_max_;
     IloInt norm_;
     IloNum time_limit_;
     std::chrono::time_point<std::chrono::high_resolution_clock> time_start_;
@@ -67,28 +53,21 @@ private:
     IloModel master_problem_;
     IloCplex master_solver_;
     IloObjective master_objective_;
-    //IloNumExprArg master_deviation_;
+
     IloRangeArray x_;
-    IloRange gd;
     IloRange zeta_;
     IloRange gamma_;
     IloRange delta_;
+
     IloNumVarArray columns_;
     IloArray<IloNumArray> patterns_;
     IloNumArray pattern_deviations_;
 
-    // Branch and price variables
-
-    //IloInt branching_column_;
+    // Output variables
     IloNum lower_bound_;
     IloNum lower_bound_deviation_;
     IloNum upper_bound_;
     IloNum upper_bound_deviation_;
-    //int fractional_columns_;
-
-    // Flags
-    bool relaxed_solution_is_feasible_;
-    bool relaxed_solution_is_integral_;
 };
 
 

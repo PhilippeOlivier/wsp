@@ -11,8 +11,8 @@ int main(int argc, char* argv[]) {
     IloInt norm;
     IloNum time_limit = IloNumMax;
     IloInt num_bins;
-    IloInt min_deviation = 0;
-    IloInt max_deviation = IloIntMax;
+    IloInt d_min = 0;
+    IloInt d_max = IloIntMax;
     
     if (argc == 0) {
 	Help();
@@ -27,13 +27,13 @@ int main(int argc, char* argv[]) {
 	    i++;
 	    filename = argv[i];
 	}
-	else if (!strcmp(argv[i], "-maxdev")) {
+	else if (!strcmp(argv[i], "-dmin")) {
 	    i++;
-	    max_deviation = atoi(argv[i]);
+	    d_min = atoi(argv[i]);
 	}
-	else if (!strcmp(argv[i], "-mindev")) {
+	else if (!strcmp(argv[i], "-dmax")) {
 	    i++;
-	    min_deviation = atoi(argv[i]);
+	    d_max = atoi(argv[i]);
 	}
 	else if (!strcmp(argv[i], "-norm")) {
 	    i++;
@@ -46,8 +46,8 @@ int main(int argc, char* argv[]) {
 
     }
     if ((num_bins <= 0) ||
-	(min_deviation < 0) ||
-	(max_deviation < min_deviation) ||
+	(d_min < 0) ||
+	(d_max < d_min) ||
 	(norm != 1 && norm != 2 && norm != 3) ||
 	(time_limit < 0)) {
 	Help();
@@ -55,14 +55,14 @@ int main(int argc, char* argv[]) {
     }
 
     
-    Problem *bestproblem = new Problem(filename,
-				       num_bins,
-				       norm,
-				       min_deviation,
-				       max_deviation,
-				       time_limit);
+    Problem *problem = new Problem(filename,
+				   num_bins,
+				   norm,
+				   d_min,
+				   d_max,
+				   time_limit);
 
-    bestproblem->DisplaySolution();
+    problem->DisplaySolution();
     
     return 0;
 }
@@ -75,16 +75,16 @@ void Help() {
 	 << endl;
     cout << "-bins [number of bins]"
 	 << endl;
-    cout << "-file [filename.wpn]"
+    cout << "-file [myinstance.wsp]"
 	 << endl;
-    cout << "-mindev [minimum cumulative deviation (default unbounded)]"
+    cout << "-dmin [minimum cumulative deviation (default unbounded)]"
 	 << endl;
-    cout << "-maxdev [maximum cumulative deviation (default unbounded)]"
+    cout << "-dmax [maximum cumulative deviation (default unbounded)]"
 	 << endl;
     cout << "-norm [1 for L1-deviation, 2 for L2-deviation, 3 for Li-deviation]"
 	 << endl;
     cout << "-timelimit [cutoff in seconds (default unlimited)]"
 	 << endl;
-    cout << "Example: ./ipb -file myinstance.wpn -bins 22 -norm 2"
+    cout << "Example: ./ipb -file myinstance.wsp -bins 22 -norm 2"
 	 << endl;
 }
