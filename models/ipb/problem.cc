@@ -5,6 +5,7 @@ ILOSTLBEGIN
 Problem::Problem(char* filename,
 		 IloInt num_bins,
 		 IloInt norm,
+		 IloInt subproblem_type,
 		 IloInt d_min,
 		 IloInt d_max,
 		 IloNum time_limit) {
@@ -15,6 +16,7 @@ Problem::Problem(char* filename,
     num_bins_ = num_bins;
     mean_load_ = IloSum(weights_)/(float)num_bins_;
     norm_ = norm;
+    subproblem_type_ = subproblem_type;
     d_min_ = d_min;
     d_max_ = d_max;
     time_limit_ = time_limit;
@@ -34,7 +36,12 @@ Problem::Problem(char* filename,
     }
 
     GenerateInitialColumns();
-    SolveRelaxationCp();
+    if (subproblem_type_ == CP_SUBPROBLEM) {
+	SolveRelaxationCp();
+    }
+    if (subproblem_type_ == IP_SUBPROBLEM) {
+	SolveRelaxationIp();
+    }
     SolveIntegrality();
 }
 
@@ -98,11 +105,11 @@ void Problem::OptimizeBinLoadBounds() {
 	max_load_ = (int)floor(mean_load_+sqrt(d_max_*
 					       (num_bins_-1)/num_bins_));
     }
-    else if (norm_ == 3) {
-    	min_load_ = (int)max((double)0,
-    			     (double)ceil(mean_load_-d_max_));
-    	max_load_ = (int)floor(mean_load_+d_max_);
-    }
+    // else if (norm_ == 3) {
+    // 	min_load_ = (int)max((double)0,
+    // 			     (double)ceil(mean_load_-d_max_));
+    // 	max_load_ = (int)floor(mean_load_+d_max_);
+    // }
 }
 
 
@@ -143,13 +150,13 @@ void Problem::GenerateInitialColumns() {
 	cp_model.add(IloSum(bin_deviations) >= d_min_);
 	cp_model.add(IloSum(bin_deviations) <= d_max_);
     }
-    else if (norm_ == 3) {
-	for (int i=0; i<num_bins_; i++) {
-	    bin_deviations.add(IloAbs(bin_loads[i]-mean_load_));
-	}
-	cp_model.add(IloMax(bin_deviations) >= d_min_);
-	cp_model.add(IloMax(bin_deviations) <= d_max_);
-    }
+    // else if (norm_ == 3) {
+    // 	for (int i=0; i<num_bins_; i++) {
+    // 	    bin_deviations.add(IloAbs(bin_loads[i]-mean_load_));
+    // 	}
+    // 	cp_model.add(IloMax(bin_deviations) >= d_min_);
+    // 	cp_model.add(IloMax(bin_deviations) <= d_max_);
+    // }
 	
     IloCP cp_solver(cp_model);
     cp_solver.setParameter(IloCP::TimeLimit, time_limit_);
@@ -171,15 +178,27 @@ void Problem::GenerateInitialColumns() {
 					     num_bins_,
 					     IloSum(columns_),
 					     num_bins_));
-    //TODO: Li modify this
-    gamma_ = IloAdd(master_problem_, IloRange(env_,
-					      d_min_,
-					      IloScalProd(columns_, pattern_deviations_),
-					      IloInfinity));
-    delta_ = IloAdd(master_problem_, IloRange(env_,
-					      0,
-					      IloScalProd(columns_, pattern_deviations_),
-					      d_max_));
+    if (norm_ == 1 || norm_ == 2) {
+	gamma_ = IloAdd(master_problem_, IloRange(env_,
+						  d_min_,
+						  IloScalProd(columns_, pattern_deviations_),
+						  IloInfinity));
+	delta_ = IloAdd(master_problem_, IloRange(env_,
+						  0,
+						  IloScalProd(columns_, pattern_deviations_),
+						  d_max_));
+    }
+    // TODO: Modify this for Li
+    // else if (norm_ == 3) {
+    // 	gamma_ = IloAdd(master_problem_, IloRange(env_,
+    // 						  d_min_,
+    // 						  IloScalProd(columns_, pattern_deviations_),
+    // 						  IloInfinity));
+    // 	delta_ = IloAdd(master_problem_, IloRange(env_,
+    // 						  0,
+    // 						  IloScalProd(columns_, pattern_deviations_),
+    // 						  d_max_));
+    // }
 
     // Add the new columns to the model
     for (int i=0; i<num_bins_; i++) {
@@ -207,7 +226,7 @@ void Problem::SolveRelaxationIp() {
 						 num_bins_,
 						 IloSum(columns_),
 						 num_bins_));
-	//TODO: Li modify this
+	// TODO: Modify this for Li
 	master_problem_.remove(delta_);
 	delta_ = IloAdd(master_problem_, IloRange(env_,
 						  0,
@@ -273,7 +292,7 @@ void Problem::SolveRelaxationIp() {
 	else if (norm_ == 2) {
 	    obj3 = beta*beta*(gamma+delta);
 	}
-	//TODO: Li modify this
+	// TODO: Modify this for Li
 	else if (norm_ == 3) {
 	    obj3 = beta*(gamma+delta);
 	}
@@ -286,7 +305,7 @@ void Problem::SolveRelaxationIp() {
 	}
 
 	// Objectives
-	// TODO: Li modify this
+	// TODO: Modify this for Li
 	if ((gamma+delta) <= 0) {
 	    sub_objective.setExpr(obj1+obj2+obj3-obj4);
 	}
@@ -359,7 +378,7 @@ void Problem::SolveRelaxationCp() {
 						 num_bins_,
 						 IloSum(columns_),
 						 num_bins_));
-	//TODO: Li modify this
+	// TODO: Modify this for Li
 	master_problem_.remove(delta_);
 	delta_ = IloAdd(master_problem_, IloRange(env_,
 						  0,
@@ -399,7 +418,7 @@ void Problem::SolveRelaxationCp() {
 	for (int i=0; i<num_items_-1; i++) {
 	    for (int j=i+1; j<num_items_; j++) {
 		if (costs_[i][j] == CONFLICT) {
-		    sub_problem.add(z[i] != z[j]);
+		    sub_problem.add(z[i]+z[j] <= 1);
 		}
 	    }
 	}
@@ -424,7 +443,7 @@ void Problem::SolveRelaxationCp() {
 	else if (norm_ == 2) {
 	    obj3 = beta*beta*(gamma+delta);
 	}
-	//TODO: Li modify this
+	// TODO: Modify this for Li
 	else if (norm_ == 3) {
 	    obj3 = beta*(gamma+delta);
 	}
@@ -437,7 +456,7 @@ void Problem::SolveRelaxationCp() {
 	}
 
 	// Objectives
-	// TODO: Li modify this
+	// TODO: Modify this for Li
 	if ((gamma+delta) <= 0) {
 	    sub_objective.setExpr(obj1+obj2+obj3-obj4);
 	}
@@ -446,12 +465,8 @@ void Problem::SolveRelaxationCp() {
 	}
 
 	sub_solver.startNewSearch();
-
 	bool new_column_added = false;
-	cout << "START" <<endl;
 	while (sub_solver.next()) {
-	    cout << "IN LOOLP" <<endl;
-	    // TODO: make sure the model is correct since he does not seem to find a single solution
 	    if ((sub_solver.getValue(obj1)+
 	    	 sub_solver.getValue(obj2)+
 	    	 sub_solver.getValue(obj3)
@@ -544,7 +559,7 @@ void Problem::SolveIntegrality() {
 					     num_bins_,
 					     IloSum(columns_),
 					     num_bins_));
-    //TODO: Li modify this
+    // TODO: Modify this for Li
     master_problem_.remove(delta_);
     delta_ = IloAdd(master_problem_, IloRange(env_,
 					      0,
@@ -565,9 +580,22 @@ void Problem::SolveIntegrality() {
 
 void Problem::DisplaySolution() {
 /*
+ * bins,norm,dmin,dmax,SPtype
  * LBcosts,LBdeviation,UBcosts,UBdeviation,time
  *
  */
+    std::cout << num_bins_
+	      << ","
+	      << norm_
+	      << ","
+	      << d_min_
+	      << ","
+	      << d_max_
+	      << ","
+	      << subproblem_type_
+	      << std::endl;
+
+
     std::cout << lower_bound_
 	      << ","
 	      << lower_bound_deviation_

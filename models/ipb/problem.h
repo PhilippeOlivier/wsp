@@ -8,6 +8,8 @@
 #include <ilcplex/ilocplex.h>
 #define RC_EPS 1.0e-6
 #define CONFLICT 9999 // IloIntMax causes overflow
+#define CP_SUBPROBLEM 0
+#define IP_SUBPROBLEM 1
 
 
 class Problem {
@@ -15,6 +17,7 @@ public:
     Problem(char* filename,
 	    IloInt num_bins,
 	    IloInt norm,
+	    IloInt subproblem_type,
 	    IloInt d_min,
 	    IloInt d_max,
 	    IloNum time_limit);
@@ -37,6 +40,7 @@ private:
     IloInt d_min_;
     IloInt d_max_;
     IloInt norm_;
+    IloInt subproblem_type_;
     IloNum time_limit_;
     std::chrono::time_point<std::chrono::high_resolution_clock> time_start_;
     

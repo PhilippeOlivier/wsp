@@ -9,6 +9,7 @@ void Help();
 int main(int argc, char* argv[]) {
     char* filename;
     IloInt norm;
+    IloInt subproblem_type = -1;
     IloNum time_limit = IloNumMax;
     IloInt num_bins;
     IloInt d_min = 0;
@@ -39,6 +40,12 @@ int main(int argc, char* argv[]) {
 	    i++;
 	    norm = atoi(argv[i]);
 	}
+	else if (!strcmp(argv[i], "-cp")) {
+	    subproblem_type = CP_SUBPROBLEM;
+	}
+	else if (!strcmp(argv[i], "-ip")) {
+	    subproblem_type = IP_SUBPROBLEM;
+	}
 	else if (!strcmp(argv[i], "-timelimit")) {
 	    i++;
 	    time_limit = atof(argv[i]);
@@ -49,15 +56,16 @@ int main(int argc, char* argv[]) {
 	(d_min < 0) ||
 	(d_max < d_min) ||
 	(norm != 1 && norm != 2 && norm != 3) ||
+	(subproblem_type == -1) ||
 	(time_limit < 0)) {
 	Help();
 	exit(0);
     }
-
     
     Problem *problem = new Problem(filename,
 				   num_bins,
 				   norm,
+				   subproblem_type,
 				   d_min,
 				   d_max,
 				   time_limit);
@@ -69,7 +77,8 @@ int main(int argc, char* argv[]) {
 
 
 void Help() {
-    cout << "At a minimum, a filename, a number of bins, and a norm must be specified."
+    cout << "At a minimum, a filename, a number of bins, a norm, "
+	 << "and a subproblem type must be specified."
 	 << endl;
     cout << "./ipb [options]"
 	 << endl;
@@ -82,6 +91,10 @@ void Help() {
     cout << "-dmax [maximum cumulative deviation (default unbounded)]"
 	 << endl;
     cout << "-norm [1 for L1-deviation, 2 for L2-deviation, 3 for Li-deviation]"
+	 << endl;
+    cout << "-cp [for a CP-based subproblem]"
+	 << endl;
+    cout << "-ip [for an IP-based subproblem]"
 	 << endl;
     cout << "-timelimit [cutoff in seconds (default unlimited)]"
 	 << endl;

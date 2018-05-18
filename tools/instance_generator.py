@@ -3,18 +3,21 @@
 
 ################################################################################
 # 
-# This script generates 'num_instances' instances of size 'num_items'. Every
-# instance shares the same item weights, but has a different cost matrix.
+# This script generates a batch of 'num_instances' instances of size
+# 'num_items'. Every instance shares the same item weights, but has a different
+# cost matrix.
 #
 # Note: A necessary condition is that p+q+r <= 1.
+#
+# Example:
+# python3 instance_generator.py batch_name
 #
 ################################################################################
 
 
 ################################## PARAMETERS ##################################
 
-min_item_weight = 1
-max_item_weight = 8
+num_instances = 3
 num_items = 50
 
 p = 0.25 # Probability of c<0
@@ -22,9 +25,10 @@ q = 0.25 # Probability of c>0
 r = 0.25 # Probability of conflict
 conflict = 9999
 
+min_item_weight = 1
+max_item_weight = 8
 min_cost = -5
 max_cost = 5
-num_instances = 1
 
 ################################################################################
 
