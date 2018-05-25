@@ -8,13 +8,14 @@ void Help();
 
 int main(int argc, char* argv[]) {
     char* filename;
-    IloInt norm;
-    IloInt subproblem_type = -1;
-    IloNum time_limit = IloNumMax;
-    IloInt num_bins;
+    
     IloInt d_min = 0;
     IloInt d_max = IloIntMax;
-    
+    IloInt norm = -1;
+    IloInt num_bins = -1;
+    IloInt subproblem_type = -1;
+    IloNum time_limit = IloNumMax;
+
     if (argc == 0) {
 	Help();
 	exit(0);
@@ -77,27 +78,28 @@ int main(int argc, char* argv[]) {
 
 
 void Help() {
-    cout << "At a minimum, a filename, a number of bins, a norm, "
-	 << "and a subproblem type must be specified."
-	 << endl;
-    cout << "./ipb [options]"
-	 << endl;
-    cout << "-bins [number of bins]"
-	 << endl;
-    cout << "-file [myinstance.wsp]"
-	 << endl;
-    cout << "-dmin [minimum cumulative deviation (default unbounded)]"
-	 << endl;
-    cout << "-dmax [maximum cumulative deviation (default unbounded)]"
-	 << endl;
-    cout << "-norm [1 for L1-deviation, 2 for L2-deviation, 3 for Li-deviation]"
-	 << endl;
-    cout << "-cp [for a CP-based subproblem]"
-	 << endl;
-    cout << "-ip [for an IP-based subproblem]"
-	 << endl;
-    cout << "-timelimit [cutoff in seconds (default unlimited)]"
-	 << endl;
-    cout << "Example: ./ipb -file myinstance.wsp -bins 22 -norm 2"
-	 << endl;
+    std::cout << "At a minimum, a filename, a number of bins, a norm, "
+	      << "and a subproblem type must be specified."
+	      << std::endl;
+    std::cout << "./ipb [options]"
+	      << std::endl;
+    std::cout << "-bins [number of bins]"
+	      << std::endl;
+    std::cout << "-file [myinstance.wsp]"
+	      << std::endl;
+    std::cout << "-dmin [minimum cumulative deviation (default unbounded)]"
+	      << std::endl;
+    std::cout << "-dmax [maximum cumulative deviation (default unbounded)]"
+	      << std::endl;
+    std::cout << "-norm [1 for L1-deviation, 2 for L2-deviation, 3 for "
+	      << "Li-deviation]"
+	      << std::endl;
+    std::cout << "-cp [for a CP-based subproblem]"
+	      << std::endl;
+    std::cout << "-ip [for an IP-based subproblem]"
+	      << std::endl;
+    std::cout << "-timelimit [cutoff in seconds (default unlimited)]"
+	      << std::endl;
+    std::cout << "Example: ./ipb -file myinstance.wsp -bins 22 -norm 2 -ip"
+	      << std::endl;
 }

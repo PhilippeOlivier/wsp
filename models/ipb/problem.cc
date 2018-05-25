@@ -92,12 +92,12 @@ void Problem::LoadData(char* filename) {
 
 
 void Problem::OptimizeBinLoadBounds() {
-    if (norm_ == 1) {
+    if (norm_ == L1_NORM) {
 	min_load_ = (int)max((double)0,
 			     (double)ceil(mean_load_-(float)d_max_/2));
 	max_load_ = (int)floor(mean_load_+(float)d_max_/2);
     }
-    else if (norm_ == 2) {
+    else if (norm_ == L2_NORM) {
 	min_load_ = (int)max((double)0,
 			     (double)ceil(mean_load_-
 					  sqrt(d_max_*
@@ -105,7 +105,7 @@ void Problem::OptimizeBinLoadBounds() {
 	max_load_ = (int)floor(mean_load_+sqrt(d_max_*
 					       (num_bins_-1)/num_bins_));
     }
-    // else if (norm_ == 3) {
+    // else if (norm_ == Li_NORM) {
     // 	min_load_ = (int)max((double)0,
     // 			     (double)ceil(mean_load_-d_max_));
     // 	max_load_ = (int)floor(mean_load_+d_max_);
@@ -135,14 +135,14 @@ void Problem::GenerateInitialColumns() {
 			 IloIntExpr(env_, num_bins_)));
 
     IloNumExprArray bin_deviations = IloNumExprArray(env_);
-    if (norm_ == 1) {
+    if (norm_ == L1_NORM) {
 	for (int i=0; i<num_bins_; i++) {
 	    bin_deviations.add(IloAbs(bin_loads[i]-mean_load_));
 	}
 	cp_model.add(IloSum(bin_deviations) >= d_min_);
 	cp_model.add(IloSum(bin_deviations) <= d_max_);
     }
-    else if (norm_ == 2) {
+    else if (norm_ == L2_NORM) {
 	for (int i=0; i<num_bins_; i++) {
 	    bin_deviations.add(IloAbs(bin_loads[i]-mean_load_)*
 			       IloAbs(bin_loads[i]-mean_load_));
@@ -150,7 +150,7 @@ void Problem::GenerateInitialColumns() {
 	cp_model.add(IloSum(bin_deviations) >= d_min_);
 	cp_model.add(IloSum(bin_deviations) <= d_max_);
     }
-    // else if (norm_ == 3) {
+    // else if (norm_ == Li_NORM) {
     // 	for (int i=0; i<num_bins_; i++) {
     // 	    bin_deviations.add(IloAbs(bin_loads[i]-mean_load_));
     // 	}
@@ -178,7 +178,7 @@ void Problem::GenerateInitialColumns() {
 					     num_bins_,
 					     IloSum(columns_),
 					     num_bins_));
-    if (norm_ == 1 || norm_ == 2) {
+    if (norm_ == L1_NORM || norm_ == L2_NORM) {
 	gamma_ = IloAdd(master_problem_, IloRange(env_,
 						  d_min_,
 						  IloScalProd(columns_, pattern_deviations_),
@@ -189,7 +189,7 @@ void Problem::GenerateInitialColumns() {
 						  d_max_));
     }
     // TODO: Modify this for Li
-    // else if (norm_ == 3) {
+    // else if (norm_ == Li_NORM) {
     // 	gamma_ = IloAdd(master_problem_, IloRange(env_,
     // 						  d_min_,
     // 						  IloScalProd(columns_, pattern_deviations_),
@@ -286,14 +286,14 @@ void Problem::SolveRelaxationIp() {
 	obj2 += zeta;
 
 	IloNumExpr obj3(env_);
-	if (norm_ == 1) {
+	if (norm_ == L1_NORM) {
 	    obj3 = beta*(gamma+delta);
 	}
-	else if (norm_ == 2) {
+	else if (norm_ == L2_NORM) {
 	    obj3 = beta*beta*(gamma+delta);
 	}
 	// TODO: Modify this for Li
-	else if (norm_ == 3) {
+	else if (norm_ == Li_NORM) {
 	    obj3 = beta*(gamma+delta);
 	}
 	
@@ -437,14 +437,14 @@ void Problem::SolveRelaxationCp() {
 	obj2 += zeta;
 
 	IloNumExpr obj3(env_);
-	if (norm_ == 1) {
+	if (norm_ == L1_NORM) {
 	    obj3 = beta*(gamma+delta);
 	}
-	else if (norm_ == 2) {
+	else if (norm_ == L2_NORM) {
 	    obj3 = beta*beta*(gamma+delta);
 	}
 	// TODO: Modify this for Li
-	else if (norm_ == 3) {
+	else if (norm_ == Li_NORM) {
 	    obj3 = beta*(gamma+delta);
 	}
 	
@@ -537,14 +537,14 @@ IloNum Problem::ComputePatternCost(IloNumArray pattern) {
 IloNum Problem::ComputePatternDeviation(IloNumArray pattern) {
     IloNum deviation = 0;
     IloNum weight = IloScalProd(weights_, pattern);
-    if (norm_ == 1) {
+    if (norm_ == L1_NORM) {
 	deviation = IloAbs(mean_load_-weight);
     }
-    else if (norm_ == 2) {
+    else if (norm_ == L2_NORM) {
 	deviation = IloAbs(mean_load_-weight);
 	deviation = deviation*deviation;
     }
-    else if (norm_ == 3) {
+    else if (norm_ == Li_NORM) {
 	deviation = IloAbs(mean_load_-weight);
     }
     return deviation;

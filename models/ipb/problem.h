@@ -8,8 +8,11 @@
 #include <ilcplex/ilocplex.h>
 #define RC_EPS 1.0e-6
 #define CONFLICT 9999 // IloIntMax causes overflow
-#define CP_SUBPROBLEM 0
-#define IP_SUBPROBLEM 1
+#define CP_SUBPROBLEM 1
+#define IP_SUBPROBLEM 2
+#define L1_NORM 1
+#define L2_NORM 2
+#define Li_NORM 3
 
 
 class Problem {
