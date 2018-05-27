@@ -581,8 +581,8 @@ void Problem::SolveIntegrality() {
 void Problem::DisplaySolution() {
 /*
  * bins,norm,dmin,dmax,SPtype
+ * load1,...,loadk
  * LBcosts,LBdeviation,UBcosts,UBdeviation,time
- *
  */
     std::cout << num_bins_
 	      << ","
@@ -595,7 +595,9 @@ void Problem::DisplaySolution() {
 	      << subproblem_type_
 	      << std::endl;
 
-
+    std::cout << "TODO: display loads"
+	      << std::endl;
+    
     std::cout << lower_bound_
 	      << ","
 	      << lower_bound_deviation_
