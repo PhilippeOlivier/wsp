@@ -136,19 +136,19 @@ void Problem::GenerateInitialColumns() {
 
     IloNumExprArray bin_deviations = IloNumExprArray(env_);
     if (norm_ == L1_NORM) {
-	for (int i=0; i<num_bins_; i++) {
-	    bin_deviations.add(IloAbs(bin_loads[i]-mean_load_));
-	}
-	cp_model.add(IloSum(bin_deviations) >= d_min_);
-	cp_model.add(IloSum(bin_deviations) <= d_max_);
+    	for (int i=0; i<num_bins_; i++) {
+    	    bin_deviations.add(IloAbs(bin_loads[i]-mean_load_));
+    	}
+    	cp_model.add(IloSum(bin_deviations) >= d_min_);
+    	cp_model.add(IloSum(bin_deviations) <= d_max_);
     }
     else if (norm_ == L2_NORM) {
-	for (int i=0; i<num_bins_; i++) {
-	    bin_deviations.add(IloAbs(bin_loads[i]-mean_load_)*
-			       IloAbs(bin_loads[i]-mean_load_));
-	}
-	cp_model.add(IloSum(bin_deviations) >= d_min_);
-	cp_model.add(IloSum(bin_deviations) <= d_max_);
+    	for (int i=0; i<num_bins_; i++) {
+    	    bin_deviations.add(IloAbs(bin_loads[i]-mean_load_)*
+    			       IloAbs(bin_loads[i]-mean_load_));
+    	}
+    	cp_model.add(IloSum(bin_deviations) >= d_min_);
+    	cp_model.add(IloSum(bin_deviations) <= d_max_);
     }
     // else if (norm_ == Li_NORM) {
     // 	for (int i=0; i<num_bins_; i++) {
@@ -157,10 +157,17 @@ void Problem::GenerateInitialColumns() {
     // 	cp_model.add(IloMax(bin_deviations) >= d_min_);
     // 	cp_model.add(IloMax(bin_deviations) <= d_max_);
     // }
-	
+
+    // Random-fit decreasing search strategy
+    IloSearchPhase phase(env_,
+			 IloSelectSmallest(IloVarIndex(env_,
+						       initial_columns)),
+			 IloSelectRandomValue(env_));    
     IloCP cp_solver(cp_model);
+    cp_solver.setSearchPhases(phase);
     cp_solver.setParameter(IloCP::TimeLimit, time_limit_);
     cp_solver.setOut(env_.getNullStream()); // Supress Cplex output
+    
     if (!cp_solver.solve()) {
 	std::cout << "No solution exists." << std::endl;
 	std::cout << (std::chrono::duration<double>(std::chrono::high_resolution_clock::now()
@@ -363,7 +370,7 @@ void Problem::SolveRelaxationIp() {
 		}
 	    }
 	}
-	    
+	
 	// If no new column is added, no constraints were violated
 	if (new_column_added == false) break;
     }
@@ -403,7 +410,7 @@ void Problem::SolveRelaxationCp() {
 	IloModel sub_problem(env_);
 	IloCP sub_solver(sub_problem);
 	sub_solver.setOut(env_.getNullStream()); // Supress Cplex output
-	IloObjective sub_objective = IloAdd(sub_problem, IloMaximize(env_));
+	//IloObjective sub_objective = IloAdd(sub_problem, IloMaximize(env_));
 	IloIntVarArray z(env_, num_items_, 0, 1);
 
 	// Auxiliary variable: Beta (deviation)
@@ -455,67 +462,63 @@ void Problem::SolveRelaxationCp() {
 	    }
 	}
 
-	// Objectives
+	// The objectives are considered simple constraints
 	// TODO: Modify this for Li
 	if ((gamma+delta) <= 0) {
-	    sub_objective.setExpr(obj1+obj2+obj3-obj4);
+	    sub_problem.add(obj1+obj2+obj3 >= obj4);
 	}
 	else if ((gamma+delta) > 0) {
-	    sub_objective.setExpr(obj1+obj2-obj3-obj4);
+	    sub_problem.add(obj1+obj2-obj3 >= obj4);
 	}
 
 	sub_solver.startNewSearch();
-	bool new_column_added = false;
+	int num_columns_added = 0;
 	while (sub_solver.next()) {
-	    if ((sub_solver.getValue(obj1)+
-	    	 sub_solver.getValue(obj2)+
-	    	 sub_solver.getValue(obj3)
-	    	 >
-	    	 sub_solver.getValue(obj4))) {
+	    IloNumArray new_pattern(env_, num_items_);
+	    sub_solver.getValues(z, new_pattern);
 
-		IloNumArray new_pattern(env_, num_items_);
-		sub_solver.getValues(z, new_pattern);
+	    // Ensure that patterns are really integral
+	    for (int j=0; j<num_items_; j++) {
+		if ((new_pattern[j] >= 0-RC_EPS) &&
+		    (new_pattern[j] <= 0+RC_EPS)) {
+		    new_pattern[j] = 0;
+		}
+		else if ((new_pattern[j] >= 1-RC_EPS) &&
+			 (new_pattern[j] <= 1+RC_EPS)) {
+		    new_pattern[j] = 1;
+		}
+	    }
 
-		// Ensure that patterns are really integral
-		for (int j=0; j<num_items_; j++) {
-		    if ((new_pattern[j] >= 0-RC_EPS) &&
-			(new_pattern[j] <= 0+RC_EPS)) {
-			new_pattern[j] = 0;
-		    }
-		    else if ((new_pattern[j] >= 1-RC_EPS) &&
-			     (new_pattern[j] <= 1+RC_EPS)) {
-			new_pattern[j] = 1;
+	    // Prevent an existing pattern from being recreated
+	    bool already_exists = false;
+	    for (int j=0; j<patterns_.getSize(); j++) {
+		int similarity = 0;
+		for (int k=0; k<num_items_; k++) {
+		    if (new_pattern[k] == patterns_[j][k]) {
+			similarity++;
 		    }
 		}
-
-		// Prevent an existing pattern from being recreated
-		bool already_exists = false;
-		for (int j=0; j<patterns_.getSize(); j++) {
-		    int similarity = 0;
-		    for (int k=0; k<num_items_; k++) {
-			if (new_pattern[k] == patterns_[j][k]) {
-			    similarity++;
-			}
-		    }
-		    if (similarity == num_items_) {
-			already_exists = true;
-			break;
-		    }
+		if (similarity == num_items_) {
+		    already_exists = true;
+		    break;
 		}
-		if (already_exists == false) {
-		    new_column_added = true;
-		    patterns_.add(new_pattern);
-		    IloNum pattern_cost = ComputePatternCost(new_pattern);
-		    IloNum pattern_deviation = ComputePatternDeviation(new_pattern);
-		    pattern_deviations_.add(pattern_deviation);
-		    columns_.add(IloNumVar(master_objective_(pattern_cost) +
-					   x_(new_pattern)));
+	    }
+	    if (already_exists == false) {
+		patterns_.add(new_pattern);
+		IloNum pattern_cost = ComputePatternCost(new_pattern);
+		IloNum pattern_deviation = ComputePatternDeviation(new_pattern);
+		pattern_deviations_.add(pattern_deviation);
+		columns_.add(IloNumVar(master_objective_(pattern_cost) +
+				       x_(new_pattern)));
+		num_columns_added++;
+		if (num_columns_added > num_bins_) {
+		    break;
 		}
 	    }
 	}
-	    
+
 	// If no new column is added, no constraints were violated
-	if (new_column_added == false) {
+	if (num_columns_added == 0) {
 	    sub_solver.endSearch();
 	    break;
 	}
@@ -580,7 +583,7 @@ void Problem::SolveIntegrality() {
 
 void Problem::DisplaySolution() {
 /*
- * bins,norm,dmin,dmax,SPtype
+ * #bins,norm,dmin,dmax,SPtype,#columns
  * load1,...,loadk
  * LBcosts,LBdeviation,UBcosts,UBdeviation,time
  */
@@ -593,10 +596,21 @@ void Problem::DisplaySolution() {
 	      << d_max_
 	      << ","
 	      << subproblem_type_
+	      << ","
+	      << columns_.getSize()
 	      << std::endl;
 
-    std::cout << "TODO: display loads"
-	      << std::endl;
+    bool first_bin = true;
+    for (int i=0; i<columns_.getSize(); i++) {
+    	if (master_solver_.getValue(columns_[i]) == 1) {
+	    if (first_bin == false) {
+		std::cout << ",";
+	    }
+	    std::cout << IloScalProd(patterns_[i], weights_);
+	    first_bin = false;
+	}
+    }
+    std::cout << std::endl;
     
     std::cout << lower_bound_
 	      << ","
