@@ -1,0 +1,82 @@
+\begin{thebibliography}{10}
+
+\bibitem{Lewis2013}
+Lewis, R.
+\newblock In: Constructing Wedding Seating Plans: A Tabu Subject. CSREA Press
+  (2013)  24--32
+
+\bibitem{Miettinen1998}
+Miettinen, K.:
+\newblock Nonlinear Multiobjective Optimization.
+\newblock Springer US (1998)
+
+\bibitem{Lewis2016}
+Lewis, R., Carroll, F.:
+\newblock Creating seating plans: a practical application.
+\newblock Journal of the Operational Research Society \textbf{67}(11) (Nov
+  2016)  1353--1362
+
+\bibitem{Bellows2012}
+Bellows, M.L., Peterson, J.D.L.:
+\newblock Finding an optimal seating chart (02 2012)
+
+\bibitem{Schaus2009}
+Schaus, P.:
+\newblock Solving Balancing and Bin-Packing problems with Constraint
+  Programming.
+\newblock PhD thesis, Université catholique de Louvain (2009)
+
+\bibitem{Sadykov2013}
+Sadykov, R., Vanderbeck, F.:
+\newblock {Bin Packing with conflicts: a generic branch-and-price algorithm}.
+\newblock {INFORMS Journal on Computing} \textbf{25}(2) (2013)  244--255
+
+\bibitem{Wang2015}
+Wang, Z., Han, X., D{\'o}sa, G., Tuza, Z.
+\newblock In: Bin Packing Game with an Interest Matrix. Springer International
+  Publishing, Cham (2015)  57--69
+
+\bibitem{Shaw2004}
+Shaw, P.:
+\newblock A constraint for bin packing.
+\newblock In Wallace, M., ed.: Principles and Practice of Constraint
+  Programming -- CP 2004, Berlin, Heidelberg, Springer Berlin Heidelberg (2004)
+   648--662
+
+\bibitem{Pesant2015}
+Pesant, G.:
+\newblock Achieving domain consistency and counting solutions for dispersion
+  constraints.
+\newblock INFORMS Journal on Computing \textbf{27}(4) (2015)  690--703
+
+\bibitem{Gualandi2013}
+Gualandi, S., Lombardi, M.
+\newblock In: A Simple and Effective Decomposition for the Multidimensional
+  Binpacking Constraint. Springer Berlin Heidelberg, Berlin, Heidelberg (2013)
+  356--364
+
+\bibitem{Bron1973}
+Bron, C., Kerbosch, J.:
+\newblock Algorithm 457: Finding all cliques of an undirected graph.
+\newblock Commun. ACM \textbf{16}(9) (September 1973)  575--577
+
+\bibitem{Shaw1998}
+Shaw, P.:
+\newblock Using constraint programming and local search methods to solve
+  vehicle routing problems.
+\newblock In Maher, M., Puget, J.F., eds.: Principles and Practice of
+  Constraint Programming --- CP98, Berlin, Heidelberg, Springer Berlin
+  Heidelberg (1998)  417--431
+
+\bibitem{Mitsos2009}
+Mitsos, A., Chachuat, B., Barton, P.I.:
+\newblock Mccormick-based relaxations of algorithms.
+\newblock SIAM Journal on Optimization \textbf{20}(2) (2009)  573--601
+
+\bibitem{Boland2015}
+Boland, N., Charkhgard, H., Savelsbergh, M.:
+\newblock A criterion space search algorithm for biobjective integer
+  programming: The balanced box method.
+\newblock INFORMS Journal on Computing \textbf{27}(4) (2015)  735--754
+
+\end{thebibliography}
