@@ -2,3 +2,6 @@ archive/*
 data/*
 models/ipb/ipb
 models/ipa/ipa
+paper/*
+!paper/main.tex
+!paper/main.pdf
