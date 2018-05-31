@@ -106,7 +106,7 @@ This paper is an extended and overhauled version of~\cite{Olivier2018}, which wa
 
 The problem consists of packing all items into the available bins such that conflicting items are packed into separate bins, under arbitrary load balancing constraints. The objective is to minimize the combined cost of all available bins. We will be considering the load balancing constraints under four distinct norms which yield incomparable results. The $L_{0}$-norm minimizes the number of values different from the mean bin load. To tackle fractional means with this norm, the two nearest integers will be considered to be within a valid mean range. The $L_{1}$- and $L_{2}$-norms minimize, respectively, the sum of absolute deviations and the sum of squared deviations from the mean. The $L_{\infty}$-norm minimizes the maximum deviation from the mean.
 
-In order to compare the impact of the load balancing parameters, we have opted to construct a Pareto set using the $\epsilon$-constraint method~\cite{Miettinen1998}: We bounded the global deviation at successively higher intervals, each time solving the problem by minimizing the objective. We consider disjoint intervals of deviation to ensure nonoverlapping solution spaces in each step of the construction of the Pareto set, thus preventing identical solutions from being found in different steps. Parameters $d_{\min}$ and $d_{\max}$ denote the lower and upper bounds on the cumulative deviation of a solution. Presenting the parameters of the load balancing constraints with a Pareto set has the advantage of offering decision-makers multiple optimal solutions to choose from depending on their perception of the trade-offs amongst them.
+In order to compare the impact of the load balancing parameters, we have opted to construct a Pareto set using the $\epsilon$-constraint method~\cite{Miettinen1998}: We bounded the global deviation at successively higher intervals, each time solving the problem by minimizing the objective. We consider disjoint intervals of deviation to ensure nonoverlapping solution spaces in each step of the construction of the Pareto set, thus preventing identical solutions from being found in different steps. Parameters $d_{\min}$ and $d_{\max}$ denote the lower and upper bounds on the global deviation of a solution. Presenting the parameters of the load balancing constraints with a Pareto set has the advantage of offering decision-makers multiple optimal solutions to choose from depending on their perception of the trade-offs amongst them.
 
 \paragraph{}The problem of packing items into bins is the same as that of seating groups of guests at tables, as described by Lewis and Carroll. It has been shown to be $\mathcal{NP}$-hard as it generalizes two other $\mathcal{NP}$-hard problems: the $k$-partition problem and the graph $k$-coloring problem \cite{Lewis2016}.
 
@@ -170,7 +170,7 @@ While we have not explored all specific edge cases in this paper, if we were to 
 
 Some symmetry is broken by fixing items of weights strictly greater than $u/2$ to separate bins. In theory, better symmetry breaking could be achieved first by fixing each item in the maximum clique of the conflict graph to a separate bin, and then by forcing an order on the loads of the remaining bins. In practice, however, symmetry breaking for the CP model is tricky as it interferes with the branching heuristic, whose strength lies in finding very good solutions very quickly. While the overall time needed to solve an instance to optimality decreases with the use of symmetry breaking, the downside is that early solutions will be worse with it than without. Without symmetry breaking, the branching heuristic basically packs the heaviest items at the bottom of the bins (i.e., they are assigned to a bin near the top of the tree). The top items of the bins are thus of lighter weights, and it is naturally less constraining to swap them around and pack them more profitably. Symmetry breaking forces some packings of lighter items at the bottom of the bins, constraining the swapping of items at the top of the bins.
 
-Finally the objective is to minimize $f$ subject to a constraint bounding the value of the cumulative deviation of the bins:
+Finally the objective is to minimize $f$ subject to a constraint bounding the value of the global deviation of the bins:
 
 \begin{alignat}{3}
   & d_{\min} < \sigma \leq d_{\max} \\
@@ -192,9 +192,10 @@ We have also further tested the CP model by including a large neighborhood searc
 % Status: Ongoing
 %
 % TODO:
-% - Order things correctly
+% - L0-norm
+% - L2-norm: After everything is working, simplify the constraints (since o_min is equal to 0)
 
-\paragraph{}The first IP model~(IP\textsubscript{A}) is a generalization of the natural quadratic IP model proposed by Lewis and Carroll~\cite{Lewis2016}. A barebones model defined by~(\ref{eq:ipa_dv})--(\ref{eq:ipa_cstr6}) is common to all load balancing norms. A $n \times m$ matrix of decision variables $x$ represents packing assignments of items into bins~(\ref{eq:ipa_dv})
+\paragraph{}The first IP model~(IP\textsubscript{A}) is a generalization of the natural quadratic IP model proposed by Lewis and Carroll~\cite{Lewis2016}. A barebones model defined by~(\ref{eq:ipa_dv})--(\ref{eq:ipa_cstr9}) is common to all load balancing norms. A $n \times m$ matrix of decision variables $x$ represents packing assignments of items into bins~(\ref{eq:ipa_dv})
 
 \begin{equation}
   x_{ik}=
@@ -206,19 +207,22 @@ We have also further tested the CP model by including a large neighborhood searc
 \end{equation}
 
 \begin{align}
-  & \min && \sum \limits_{k \in \mathcal{B}} \sum \limits_{i=1}^{n-1} \sum \limits_{j=i+1}^{n} x_{ik}x_{jk}c_{ij}                               \label{eq:ipa_obj}   \\
-  & \textrm{s.t.}                                                                                                                               \notag               \\
-  &&& \sum \limits_{k \in \mathcal{B}} x_{ik} = 1             && \forall i \in \mathcal{I}                                                      \label{eq:ipa_cstr1} \\
-  &&& x_{ik} + x_{jk} \leq 1                                  && \forall i,j \in \mathcal{I} : c_{ij} = \infty, \quad \forall k \in \mathcal{B} \label{eq:ipa_cstr2} \\
-  &&& \sum \limits_{i \in \mathcal{I}} x_{ik} w_{i} \geq \ell && \forall k \in \mathcal{B}                                                      \label{eq:ipa_cstr3} \\
-  &&& \sum \limits_{i \in \mathcal{I}} x_{ik} w_{i} \leq u    && \forall k \in \mathcal{B}                                                      \label{eq:ipa_cstr4} \\
-  &&& x_{ik} = 0                                              && \forall i \in \mathcal{I}, \quad \forall k \in \{i+1, \dots, m\}               \label{eq:ipa_cstr5} \\
-  &&& x_{ik} \in \{0, 1\}                                     && \forall i \in \mathcal{I}, \quad \forall k \in \mathcal{B}                     \label{eq:ipa_cstr6}
+  & \min && \sum \limits_{k \in \mathcal{B}} \sum \limits_{i=1}^{n-1} \sum \limits_{j=i+1}^{n} x_{ik}x_{jk}c_{ij} + \epsilon_{1} \sum \limits_{k \in \mathcal{B}} o_{k} + \epsilon_{2} \phi \label{eq:ipa_obj}   \\
+  & \textrm{s.t.}                                                                                                                                                                           \notag               \\
+  &&& \sum \limits_{k \in \mathcal{B}} x_{ik} = 1                     && \forall i \in \mathcal{I}                                                                                          \label{eq:ipa_cstr1} \\
+  &&& x_{ik} + x_{jk} \leq 1                                          && \forall i,j \in \mathcal{I} : c_{ij} = \infty, \quad \forall k \in \mathcal{B}                                     \label{eq:ipa_cstr2} \\
+  &&& \sum \limits_{i \in \mathcal{I}} x_{ik} w_{i} \geq \ell         && \forall k \in \mathcal{B}                                                                                          \label{eq:ipa_cstr3} \\
+  &&& \sum \limits_{i \in \mathcal{I}} x_{ik} w_{i} \leq u            && \forall k \in \mathcal{B}                                                                                          \label{eq:ipa_cstr4} \\
+  &&& x_{ik} = 0                                                      && \forall i \in \mathcal{I}, \quad \forall k \in \{i+1, \dots, m\}                                                   \label{eq:ipa_cstr5} \\
+  &&& \sum \limits_{i \in \mathcal{I}} x_{ik} w_{ik} - w/m \leq o_{k} && \forall k \in \mathcal{B}                                                                                          \label{eq:ipa_cstr6} \\
+  &&& w/m - \sum \limits_{i \in \mathcal{I}} x_{ik} w_{ik} \leq o_{k} && \forall k \in \mathcal{B}                                                                                          \label{eq:ipa_cstr7} \\
+  &&& o_{k} \in \{\ell, ..., u\}                                      && \forall k \in \mathcal{B}                                                                                          \label{eq:ipa_cstr8} \\
+  &&& x_{ik} \in \{0, 1\}                                             && \forall i \in \mathcal{I}, \quad \forall k \in \mathcal{B}                                                         \label{eq:ipa_cstr9}
 \end{align}
 
-The barebones model minimizes the sum of all pairwise costs between items in each bin~(\ref{eq:ipa_obj}). The items are required to be packed into one and only one bin~(\ref{eq:ipa_cstr1}), and conflicting items may not be packed into the same bin~(\ref{eq:ipa_cstr2}). Constraints~(\ref{eq:ipa_cstr3}) and~(\ref{eq:ipa_cstr4}) require that the load of every bin be within bounds $\ell$ and $u$. Some symmetry breaking is achieved with constraints~(\ref{eq:ipa_cstr5}), and constraints~(\ref{eq:ipa_cstr6}) ensure the integrality of the solution.
+The items are required to be packed into one and only one bin~(\ref{eq:ipa_cstr1}), and conflicting items may not be packed into the same bin~(\ref{eq:ipa_cstr2}). Constraints~(\ref{eq:ipa_cstr3}) and~(\ref{eq:ipa_cstr4}) require that the load of every bin be within bounds $\ell$ and $u$. Some symmetry breaking is achieved with~(\ref{eq:ipa_cstr5}). Constraints~(\ref{eq:ipa_cstr6})--(\ref{eq:ipa_cstr8}) emulate an absolute value function to provide the absolute deviation of each bin. Finally, constraints~(\ref{eq:ipa_cstr9}) ensure the integrality of the solution. The barebones model minimizes the sum of all pairwise costs between items in each bin~(\ref{eq:ipa_obj}). The values of $\epsilon_{1}$ and $\epsilon_{2}$ are small enough that they do not impact the value of the objective by~1 or more, and are such that $\epsilon_{1} \gg \epsilon_{2}$. They ensure that auxiliary variables~$o$ and~$\phi$ correctly represent, respectively, the absolute deviation of the bins and the global deviation of the solution.
 
-Integration of load balancing according to the $L_{0}$-norm is achieved by adding constraints~(?)--(?) to the barebones model:
+Integration of load balancing according to the $L_{0}$-norm is achieved with $\phi = (TODO)$, and by adding constraints~(?)--(?) to the barebones model:
 
 \begin{align}
   TODO
@@ -226,52 +230,38 @@ Integration of load balancing according to the $L_{0}$-norm is achieved by addin
 
 TODO: Description of the constraints.
 
-Integration of load balancing according to the $L_{1}$-norm is achieved by adding constraints~(\ref{eq:ipa_l1_cstr1})--(\ref{eq:ipa_l1_cstr5}) to the barebones model:
+Integration of load balancing according to the $L_{1}$-norm is achieved with $\phi = \sum_{k \in \mathcal{B}} o_{k}$, and by adding constraints~(\ref{eq:ipa_l1_cstr1}) and~(\ref{eq:ipa_l1_cstr2}) to the barebones model:
 
 \begin{align}
-  & \sum \limits_{i \in \mathcal{I}} x_{ik} w_{ik} - w/m \leq o_{k} && \forall k \in \mathcal{B} \label{eq:ipa_l1_cstr1} \\
-  & w/m - \sum \limits_{i \in \mathcal{I}} x_{ik} w_{ik} \leq o_{k} && \forall k \in \mathcal{B} \label{eq:ipa_l1_cstr2} \\
-  & \sum \limits_{k \in \mathcal{B}} o_{k} \geq d_{\min}            &&                           \label{eq:ipa_l1_cstr3} \\
-  & \sum \limits_{k \in \mathcal{B}} o_{k} \leq d_{\max}            &&                           \label{eq:ipa_l1_cstr4} \\
-  & o_{k} \in \{\ell, ..., u\}                                      && \forall k \in \mathcal{B} \label{eq:ipa_l1_cstr5}
+  & \sum \limits_{k \in \mathcal{B}} o_{k} \geq d_{\min} && \label{eq:ipa_l1_cstr1} \\
+  & \sum \limits_{k \in \mathcal{B}} o_{k} \leq d_{\max} && \label{eq:ipa_l1_cstr2}
 \end{align}
 
-Constraints~(\ref{eq:ipa_l1_cstr1}) and~(\ref{eq:ipa_l1_cstr2}) emulate an absolute value function and constraints~(\ref{eq:ipa_l1_cstr3}) and~(\ref{eq:ipa_l1_cstr4}) stipulate that the cumulative deviation of the solution must be bounded by~$d_{\min}$ and~$d_{\max}$.
+These constraints stipulate that the global deviation of the solution must be bounded by~$d_{\min}$ and~$d_{\max}$.
 
-Integration of load balancing according to the $L_{2}$-norm is achieved by adding constraints~~(\ref{eq:ipa_l1_cstr1}), (\ref{eq:ipa_l1_cstr2}), (\ref{eq:ipa_l1_cstr5}), and (?)--(?) to the barebones model (let $o_{\min} = 0$ and $o_{max} = \sqrt{d_{\max} \times (m-1)/m}$):
+Integration of load balancing according to the $L_{2}$-norm is achieved with $\phi = \sum_{h \in \mathcal{B}} \sum_{k \in \mathcal{B}} y_{hk}$, and by adding constraints~(\ref{eq:ipa_l2_cstr1})--(\ref{eq:ipa_l2_cstr7}) to the barebones model (let $o_{\min} = 0$ and $o_{max} = \sqrt{d_{\max} \times (m-1)/m}$):
 
-% TODO: RENDU ICI
-\begin{alignat}{3}
-  &&& y_{hk} \geq o_{\min}o_{k}+o_{h}o_{\min}-o_{\min}o_{\min} && \quad \forall h,k \in \mathcal{B} \\
-  &&& y_{hk} \geq o_{\max}o_{k}+o_{h}o_{\max}-o_{\max}o_{\max} && \quad \forall h,k \in \mathcal{B} \\
-  &&& y_{hk} \leq o_{\max}o_{k}+o_{h}o_{\min}-o_{\max}o_{\min} && \quad \forall h,k \in \mathcal{B} \\
-  &&& y_{hk} \leq o_{h}o_{\max}+o_{\min}o_{k}-o_{\min}o_{\max} && \quad \forall h,k \in \mathcal{B} \\
-  &&& \sum \limits_{h \in \mathcal{B}} \sum \limits_{k \in \mathcal{B}} y_{hk} \geq d_{\min} \\
-  &&& \sum \limits_{h \in \mathcal{B}} \sum \limits_{k \in \mathcal{B}} y_{hk} \leq d_{\max} \\  
-  &&& y_{hk} \geq 0 && \quad \forall h,k \in \mathcal{B}
-\end{alignat}
+\begin{align}
+  & y_{hk} \geq o_{\min}o_{k} + o_{h}o_{\min} - o_{\min}o_{\min}                           && \quad \forall h,k \in \mathcal{B} \label{eq:ipa_l2_cstr1} \\
+  & y_{hk} \geq o_{\max}o_{k} + o_{h}o_{\max} - o_{\max}o_{\max}                           && \quad \forall h,k \in \mathcal{B} \label{eq:ipa_l2_cstr2} \\
+  & y_{hk} \leq o_{\max}o_{k} + o_{h}o_{\min} - o_{\max}o_{\min}                           && \quad \forall h,k \in \mathcal{B} \label{eq:ipa_l2_cstr3} \\
+  & y_{hk} \leq o_{h}o_{\max} + o_{\min}o_{k} - o_{\min}o_{\max}                           && \quad \forall h,k \in \mathcal{B} \label{eq:ipa_l2_cstr4} \\
+  & \sum \limits_{h \in \mathcal{B}} \sum \limits_{k \in \mathcal{B}} y_{hk} \geq d_{\min}                                      \label{eq:ipa_l2_cstr5} \\
+  & \sum \limits_{h \in \mathcal{B}} \sum \limits_{k \in \mathcal{B}} y_{hk} \leq d_{\max}                                      \label{eq:ipa_l2_cstr6} \\
+  & y_{hk} \geq 0                                                                          && \quad \forall h,k \in \mathcal{B} \label{eq:ipa_l2_cstr7}
+\end{align}
 
-This model integrates convex relaxation with McCormick envelopes~\cite{Mitsos2009}. Constraints xxx.....
+Constraints~(\ref{eq:ipa_l2_cstr1})--(\ref{eq:ipa_l2_cstr4}) and~(\ref{eq:ipa_l2_cstr7}) introduce a convex relaxation with McCormick envelopes~\cite{Mitsos2009}. Constraints~(\ref{eq:ipa_l2_cstr5}) and~(\ref{eq:ipa_l2_cstr6}) stipulate that the global deviation of the solution must be bounded by~$d_{\min}$ and~$d_{\max}$.
 
-% remove this and also remove the image in the files
-\begin{figure}[H]
-  %\vspace{5cm}
-  \begin{center}
-    \includegraphics[scale=0.6]{env.png}
-  \end{center}
-\end{figure}
+Integration of load balancing according to the $L_{\infty}$-norm is achieved with $\phi = y$, and by adding constraints~(\ref{eq:ipa_li_cstr1})--(\ref{eq:ipa_li_cstr3}) to the barebones model:
 
-\paragraph{}\hl{For the $L_{\infty}$-norm we add constraints (29)--(30) to the barebones model:}
+\begin{align}
+  & o_{k} \leq y    && \quad \forall k \in \mathcal{B} \label{eq:ipa_li_cstr1} \\
+  & y \geq d_{\min}                                    \label{eq:ipa_li_cstr2} \\
+  & y \geq d_{\min}                                    \label{eq:ipa_li_cstr3}
+\end{align}
 
-\begin{alignat}{3}
-  &&& o_{k} \leq y && \quad \forall k \in \mathcal{B} \\
-  &&& y \in \{d_{\min}, ..., d_{\max}\}
-\end{alignat}
-
-\hl{The $L_{\infty}$-norm kind of works right now, but still needs some refining.}
-
-
-%\footnote{https://optimization.mccormick.northwestern.edu/index.php/McCormick\_envelopes}
+Constraints~(\ref{eq:ipa_li_cstr1}) ensure that the maximal value of variables $o$ is represented by $y$, and~(\ref{eq:ipa_li_cstr2}) and~(\ref{eq:ipa_li_cstr3}) stipulate that the global deviation of the solution must be bounded by~$d_{\min}$ and~$d_{\max}$.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -318,7 +308,7 @@ The master problem (MP) is thus based on a SP model.
   &&& x_{S} \in \{0, 1\} && \quad \forall S \in \mathbb{S}
 \end{alignat}
 
-The MP minimizes the combined costs of all bins~(23), under the conditions that each item be packed into one and only one bin~(24), that a total of $m$ bins be used~(25), and that the cumulative deviation of a solution be within bounds~$d_{\min}$ and~$d_{\max}$~(26)-(27). In order to begin solving the problem, the column generation algorithm needs~$m$ columns making up an initial feasible solution of the problem and of the continuous relaxation obtained by replacing constraints (28) with $x_{S} \geq 0, \forall S \in \mathbb{S}$. These columns are generated by a compact CP model defined by (1)-(5), (7), (todo: and some symmetry breaking and simple search strategy), and
+The MP minimizes the combined costs of all bins~(23), under the conditions that each item be packed into one and only one bin~(24), that a total of $m$ bins be used~(25), and that the global deviation of a solution be within bounds~$d_{\min}$ and~$d_{\max}$~(26)-(27). In order to begin solving the problem, the column generation algorithm needs~$m$ columns making up an initial feasible solution of the problem and of the continuous relaxation obtained by replacing constraints (28) with $x_{S} \geq 0, \forall S \in \mathbb{S}$. These columns are generated by a compact CP model defined by (1)-(5), (7), (todo: and some symmetry breaking and simple search strategy), and
 
 \begin{alignat}{3}
   & b_{i} \neq b_{j}, \quad && b_{i}, b_{j} \in \mathcal{B}, \quad \forall i, j \in \mathcal{I}:c_{ij}=\infty
@@ -458,7 +448,7 @@ IP\textsubscript{B} & 8.35 & 8.32 & 178.46 \\
 \end{tabular}
 \end{table}
 
-For the CP and IP\textsubscript{A} models, infeasibility or optimality can sometimes be proven when the maximum cumulative deviation is low enough. IP\textsubscript{B} does well especially when the time limit is high, although its solutions cannot be proven optimal without a branch-and-price scheme (but the CP model generating its initial columns can determine if an instance is infeasible). We have further tried solving instances with conflicts only ($p=0$, $q=0$, $r=0.25$) and every method could find a solution within the time limit. In Fig. 4 we show the results of instances without conflicts and only with costs ($p=0.25$, $q=0.25$, $r=0$).
+For the CP and IP\textsubscript{A} models, infeasibility or optimality can sometimes be proven when the maximum global deviation is low enough. IP\textsubscript{B} does well especially when the time limit is high, although its solutions cannot be proven optimal without a branch-and-price scheme (but the CP model generating its initial columns can determine if an instance is infeasible). We have further tried solving instances with conflicts only ($p=0$, $q=0$, $r=0.25$) and every method could find a solution within the time limit. In Fig. 4 we show the results of instances without conflicts and only with costs ($p=0.25$, $q=0.25$, $r=0$).
 
 \begin{figure}[H]
   \begin{center}
@@ -912,7 +902,7 @@ x     y      label
 
 \paragraph{}As long as there are only \emph{definitely apart} constraints, and not too many of them, both the metaheuristics approach and the CP model tend to find solutions very close to the optimum. The introduction of soft constraints, namely \emph{rather together} and \emph{rather apart}, is what sets apart the two methods. The metaheuristics approach does poorly with the addition of soft constraints, while the CP model almost always achieves better results with them than without.
 
-\paragraph{}Solutions of instances with many small groups tend to have a lower optimum, which can be explained by two factors. Firstly, the cumulative deviation should be better because it is naturally easier to evenly fill bins with small items than with larger ones.
+\paragraph{}Solutions of instances with many small groups tend to have a lower optimum, which can be explained by two factors. Firstly, the global deviation should be better because it is naturally easier to evenly fill bins with small items than with larger ones.
 
 REPHRASE THIS: Secondly, the relational score should also be better since while the number of groups sitting at a table increases linearly, the table score could increase at a higher than linear rate (for example, while the second group being seated might increase the table score by only 1, the $n^{\text{th}}$ group being seated could potentially increase the score by $n-1$). Instances of the \emph{large groups layout} type do poorly when compared to other groups layouts. The reasons for this are similar to, albeit the reverse of, those previously mentioned. To begin with, it is harder to evenly split large items into bins of a limited capacity, since there is not a lot of wiggle room to play with. In addition, since we can fit on average fewer groups per table, and since the score of a table increases at a rate superior to that of the groups that can fit on it, a lower groups-per-table ratio is doomed to fetch a lower score.
 
