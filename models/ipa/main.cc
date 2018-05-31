@@ -2,8 +2,9 @@
  * This is a modified version of the IP model introduced by Lewis and Carroll
  * in their 2016 paper: "Creating Seating Plans: A Practical Application".
  * 
- * In this modified model, the deviation can be bounded, which is needed to
- * construct the Pareto set of solutions.
+ * In this modified model the deviation can be bounded, which is needed to
+ * construct the Pareto set of solutions. This model also consider four
+ * different load balancing norms.
  */
 
 
@@ -12,7 +13,10 @@
 #include <iostream>
 #include <stdlib.h>
 #define RC_EPS 1.0e-6
+#define EPSILON_2 0.0001
+#define EPSILON_1 0.01
 #define CONFLICT 9999 // IloIntMax causes overflow
+#define L0_NORM 0
 #define L1_NORM 1
 #define L2_NORM 2
 #define Li_NORM 3
@@ -73,7 +77,7 @@ int main(int argc, char* argv[]) {
     if ((num_bins <= 0) ||
 	(d_min < 0) ||
 	(d_max < d_min) ||
-	(norm != 1 && norm != 2 && norm !=3 ) ||
+	(norm < 0 || norm > 3) ||
 	(time_limit < 0)) {
 	Help();
 	exit(0);
@@ -117,7 +121,17 @@ int main(int argc, char* argv[]) {
 
     // Optimize bin load bounds
     if (d_max < IloIntMax) {
-	if (norm == L1_NORM) {
+	if (norm == L0_NORM) {
+	    if (d_max == 0) {
+		min_load = (int)floor(mean_load);
+		max_load = (int)ceil(mean_load);
+	    }
+	    else {
+		min_load = 0;
+		max_load = IloIntMax;
+	    }
+	}
+	else if (norm == L1_NORM) {
 	    min_load = (int)max((double)0,
 				(double)ceil(mean_load-(float)d_max/2));
 	    max_load = (int)floor(mean_load+(float)d_max/2);
@@ -151,6 +165,10 @@ int main(int argc, char* argv[]) {
 // TODO: remove the try catch once this works.
     try {
 
+	/*
+	 * Barebones model
+	 */
+	
 	// Decision variables (9), constraints (20)
 	// x[i][k] == 1 if item i is assigned to bin k
 	IloArray<IloNumVarArray> x = IloArray<IloNumVarArray>(env, num_items);
@@ -210,25 +228,56 @@ int main(int argc, char* argv[]) {
 	    model.add(mean_load-w[k] <= o[k]);
 	}
 
-	IloNumExpr cumulative_deviation(env);
+	/*
+	 * Load balancing norms
+	 */
+	
+	IloNumExpr global_deviation(env, 0);
+	IloNumExpr focc(env, 0);
+	// TODO: Constraints (X), (X)....
+	if (norm == L0_NORM) {
+	    IloInt mean_load_floor = floor(mean_load);
+	    IloInt mean_load_ceil = ceil(mean_load);
+	    IloArray<IloIntVarArray> b = IloArray<IloIntVarArray>(env, num_bins);
+	    for (int k=0; k<num_bins; k++) {
+		b[k] = IloIntVarArray(env, 20, 0, 1); //TODO: replace 20 by something more sensible, representing the maximum possible deviation
+		model.add(IloSum(b[k]) == 1);
+	    }
+	    for (int k1=0; k1<num_bins; k1++) {
+		for (int k2=0; k2<20; k2++) { //TODO: 20
+		    model.add(k2-o[k1]+1 <= b[k1][k2]);
+		}
+	    }
+
+	    for (int k1=0; k1<num_bins; k1++) {
+		for (int k2=0; k2<20; k2++) { //TODO:20
+		    focc += b[k1][k2]*k2;
+		}
+	    }
+
+	    for (int k=0; k<num_bins; k++) {
+		global_deviation += b[k][mean_load_floor];
+		global_deviation += b[k][mean_load_ceil];
+	    }
+	    model.add(global_deviation >= d_min);
+	    model.add(global_deviation <= d_max);
+	}
 	
 	// Constraints (17), (18)
-	// The cumulative L1-deviation is bounded by d_min and d_max
-	if (norm == L1_NORM) {
-	    cumulative_deviation = IloSum(o);
-	    model.add(cumulative_deviation >= d_min);
-	    model.add(cumulative_deviation <= d_max);
+	else if (norm == L1_NORM) {
+	    global_deviation = IloSum(o);
+	    model.add(global_deviation >= d_min);
+	    model.add(global_deviation <= d_max);
 	}
 
 	// TODO: Constraints (X), (Y), ...
-	// Convex relaxation using McCormick envelopes
 	else if (norm == L2_NORM) {
 	    IloNum o_min = 0;
 	    IloNum o_max = sqrt(d_max*(num_bins-1)/num_bins);
 	    
-	    IloArray<IloNumVarArray> y = IloArray<IloNumVarArray>(env, num_bins);
+	    IloArray<IloIntVarArray> y = IloArray<IloIntVarArray>(env, num_bins);
 	    for (int k=0; k<num_bins; k++) {
-	    	y[k] = IloNumVarArray(env, num_bins, 0, IloIntMax, ILOFLOAT);
+	    	y[k] = IloIntVarArray(env, num_bins, 0, IloIntMax);
 	    }
 
 	    for (int k1=0; k1<num_bins; k1++) {
@@ -237,20 +286,20 @@ int main(int argc, char* argv[]) {
 		    model.add(y[k1][k2] >= o_max*o[k2]+o[k1]*o_max-o_max*o_max);
 		    model.add(y[k1][k2] <= o_max*o[k2]+o[k1]*o_min-o_max*o_min);
 		    model.add(y[k1][k2] <= o[k1]*o_max+o_min*o[k2]-o_min*o_max);
-		    cumulative_deviation += y[k1][k2];
+		    global_deviation += y[k1][k2];
 		}
 	    }
-	    model.add(cumulative_deviation >= d_min);
-	    model.add(cumulative_deviation <= d_max);
+	    model.add(global_deviation >= d_min); //TODO: still some problems here, try vsmall with dmax 50 and dmax 35, see the problem
+	    model.add(global_deviation <= d_max);
 	}
 
 	// TODO: Constraints (X), (Y), ...
 	else if (norm == Li_NORM) {
 	    IloNumVar y = IloNumVar(env, d_min, d_max, ILOFLOAT);
 	    for (int k=0; k<num_bins; k++) {
-		model.add(o[k] <= y); // TODO: why do all o[k] equal y? it goes against constraints 15-16
+		model.add(o[k] <= y);
 	    }
-	    cumulative_deviation = y;
+	    global_deviation = y;
 	}
 	
 	// Objective (10)
@@ -264,7 +313,10 @@ int main(int argc, char* argv[]) {
 		}
 	    }
 	}
-	objective.setExpr(IloSum(sum_costs));
+	objective.setExpr(IloSum(sum_costs)+EPSILON_2*IloSum(o)/*+EPSILON_1*global_deviation*/);
+	if (norm == L0_NORM) {
+	    objective.setExpr(IloSum(sum_costs)+EPSILON_2*IloSum(o)+EPSILON_2*focc+EPSILON_1*global_deviation);
+	}
 	sum_costs.end();
 
 	// Solve
@@ -278,9 +330,12 @@ int main(int argc, char* argv[]) {
 	    std::cout << solver.getCplexTime()-time_start << std::endl;
 	    exit(0);
 	}
+
+        //TEMP
+	cout <<"focc: " <<solver.getValue(focc) << endl;
 	
 	/*
-	 * bins,norm,dmin,dmax
+	 * #bins,norm,dmin,dmax
 	 * load1,...,loadk
 	 * costs,deviation,time
 	 */
@@ -298,9 +353,9 @@ int main(int argc, char* argv[]) {
 	    (k != num_bins-1) ? std::cout << "," : std::cout << "\n";
 	}
 
-	std::cout << solver.getObjValue()
+	std::cout << solver.getObjValue()-EPSILON_2*solver.getValue(IloSum(o))-EPSILON_1*solver.getValue(global_deviation) //TODO: round?
 		  << ","
-		  << solver.getValue(cumulative_deviation) // TODO: for Li-norm, replace this with the highest value of o_k?
+		  << solver.getValue(global_deviation)
 		  << ","
 		  << solver.getCplexTime()-time_start
 		  << std::endl;
