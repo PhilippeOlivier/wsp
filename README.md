@@ -10,11 +10,15 @@ In the Wedding Seating Problem (WSP), groups of guests of different sizes must b
 
 ## Instructions
 
-1. Generate instances with `/tools/instance_generator.py`. Specific instructions can be found in the source code.
+1. Generate instances with `/tools/generate.py`.
 
-2. Solve instances with the various models, which can be found in `/models`.
+2. Solve instances with the various models, which can be found in `/models`. The script `/tools/test.sh` automates this process.
+
+3. Visualize the results with `/tools/visualize.py`.
+
+Note: Specific instructions for the scripts can be found in their source code.
 
 
 ## References
 
-Refer to [this paper](http://cerc-datascience.polymtl.ca/wp-content/uploads/2018/01/Technical-Report_DS4DM-2017-015.pdf) for more details concerning the models.
+Refer to [this paper](http://cerc-datascience.polymtl.ca/wp-content/uploads/2018/01/Technical-Report_DS4DM-2017-015.pdf) for more details on the WSP and on the models.
