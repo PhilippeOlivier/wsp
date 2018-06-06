@@ -1,0 +1,11 @@
+num_items=15
+num_bins=7
+total_weight=66
+mean_load=9.428571428571429
+min_item_weight=1
+max_item_weight=8
+min_cost=-5
+max_cost=5
+p=0.25
+q=0.25
+r=0.25
