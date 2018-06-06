@@ -10,7 +10,7 @@
 # Note: A necessary condition is that p+q+r <= 1.
 #
 # Example:
-# python3 instance_generator.py batch_name
+# python3 generate.py batch_name
 #
 ################################################################################
 
