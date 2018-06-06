@@ -10,7 +10,8 @@
 # Example:
 # ./test.sh my_dataset
 #
-# The results of these tests are saved in /wsp/results/my_dataset.
+# The results of these tests are saved in /wsp/results/my_dataset along with
+# the file "parameters.txt".
 #
 ################################################################################
 
@@ -19,8 +20,8 @@
 
 model=ipb     # {ipa, ipb}
 norm=1        # {0, 1, 2, 3}
-timelimit=5
-d_max=3
+timelimit=60
+d_max=20
 
 ################################################################################
 
@@ -62,6 +63,15 @@ if [ -d "$results_dir" ]; then
 fi
 mkdir -p $results_dir
 
+# Save the test parameters in a file
+parameters_file=../results/$dataset-norm$norm-tl$timelimit-dmax$d_max/parameters.txt
+if [ ! -f "$parameters_file" ]; then
+    echo dataset=$dataset > $parameters_file
+    echo norm=$norm >> $parameters_file
+    echo timelimit=$timelimit >> $parameters_file
+    echo d_max=$d_max >> $parameters_file
+fi
+
 # Proceed with all tests
 for instance in "${instances[@]}"
 do
@@ -76,7 +86,7 @@ do
 				-timelimit $timelimit \
 				-dmin $((deviation-1)) \
 				-dmax $deviation \
-				> $results_dir/$instance_basename\_$deviation.csv
+				> $results_dir/$instance_basename-dev$deviation.csv
 	elif [ "$model" == "ipb" ]; then
 	    ./../models/ipb/ipb -file $dataset_dir/$instance \
 				-bins $bins \
@@ -85,7 +95,7 @@ do
 				-dmin $((deviation-1)) \
 				-dmax $deviation \
 				-cp \
-				> $results_dir/$instance_basename\_$deviation.csv
+				> $results_dir/$instance_basename-dev$deviation.csv
 	fi
     done
 done
