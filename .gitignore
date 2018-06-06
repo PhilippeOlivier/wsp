@@ -1,5 +1,6 @@
 archive/*
 data/*
+!data/sample/*
 models/ipb/ipb
 models/ipa/ipa
 paper/*
