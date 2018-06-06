@@ -17,8 +17,8 @@
 
 ### PARAMETERS #################################################################
 
-num_instances = 1
-num_items = 12
+num_instances = 5
+num_items = 15
 
 p = 0.25 # Probability of c<0
 q = 0.25 # Probability of c>0
@@ -79,15 +79,11 @@ def generate_instance(n):
         f.close()
 
         
-print("Working...")
-
 weights = [random.randint(min_item_weight, max_item_weight)
            for _ in range(num_items)]
 weights.sort(reverse=True)
 matrices = generate_matrices()
-
 num_bins = int(round(float(sum(weights))/10, 0))
-print("Instance needs " + str(num_bins) + " bins.")
 
 # Create the directory
 dir_name = str(sys.argv[1])
@@ -115,5 +111,3 @@ with io.open(os.path.join(dir_path+"parameters.txt"), "w") as f:
     f.write("p="+str(p)+"\n")
     f.write("q="+str(q)+"\n")
     f.write("r="+str(r)+"\n")
-    
-print("Finished generating instances.")

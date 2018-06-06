@@ -1,8 +1,21 @@
+# Personal reference
 archive/*
+
+# Sample data and results
+!data/
 data/*
-!*/data/sample/*
-models/ipb/ipb
-models/ipa/ipa
+!data/sample/
+!data/sample/*
+!results/
+results/*
+
+# Models
+models/*
+#models/ipb/ipb
+#models/ipa/ipa
+
+# Paper
+#!paper/
 paper/*
-!paper/main.tex
-!paper/main.pdf
+#!paper/main.tex
+#!paper/main.pdf
