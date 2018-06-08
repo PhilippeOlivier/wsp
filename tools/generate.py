@@ -17,8 +17,8 @@
 
 ### PARAMETERS #################################################################
 
-num_instances = 5
-num_items = 15
+num_instances = 3
+num_items = 50
 
 p = 0.25 # Probability of c<0
 q = 0.25 # Probability of c>0

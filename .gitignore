@@ -1,5 +1,13 @@
-# Personal reference
+# Personal files
 archive/*
+
+
+# Cluster-related files
+tools/password.txt
+tools/cluster_push.sh
+tools/cluster_pull.sh
+tools/cluster_query.sh
+
 
 # Sample data and results
 !data/
@@ -9,12 +17,12 @@ data/*
 !results/
 results/*
 
-# Models
+
 models/*
 #models/ipb/ipb
 #models/ipa/ipa
 
-# Paper
+
 #!paper/
 paper/*
 #!paper/main.tex

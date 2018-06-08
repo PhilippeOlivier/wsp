@@ -10,15 +10,15 @@
 # Example:
 # ./test.sh my_dataset
 #
-# The results of these tests are saved in /wsp/results/my_dataset along with
-# the file "parameters.txt".
+# The results of these tests are saved in /wsp/results/my_dataset-NORM-TL-DMAX
+# along with the file "parameters.txt".
 #
 ################################################################################
 
 
 ### PARAMETERS #################################################################
 
-model=ipb     # {ipa, ipb}
+model=ipa     # {ipa, ipb}
 norm=1        # {0, 1, 2, 3}
 timelimit=60
 d_max=20
