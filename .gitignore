@@ -18,11 +18,15 @@ data/*
 results/*
 
 
+# Models
+!models/
 models/*
+!models/ipa/
+!models/ipa/*
 #models/ipb/ipb
-#models/ipa/ipa
 
 
+# Paper
 #!paper/
 paper/*
 #!paper/main.tex

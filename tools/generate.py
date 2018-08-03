@@ -5,7 +5,7 @@
 # 
 # This script generates a batch of 'num_instances' instances of size
 # 'num_items'. Every instance shares the same item weights, but has a different
-# cost matrix.
+# cost matrix. This script takes as its only argument batch name.
 #
 # Note: A necessary condition is that p+q+r <= 1.
 #
@@ -17,12 +17,12 @@
 
 ### PARAMETERS #################################################################
 
-num_instances = 3
+num_instances = 5
 num_items = 50
 
-p = 0.25 # Probability of c<0
-q = 0.25 # Probability of c>0
-r = 0.25 # Probability of conflict
+p = 0.33 # Probability of c<0
+q = 0.33 # Probability of c>0
+r = 0.00 # Probability of conflict
 conflict = 9999
 
 min_item_weight = 1

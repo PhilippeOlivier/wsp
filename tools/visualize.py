@@ -5,7 +5,7 @@
 # in /wsp/results.
 #
 # Example:
-# python3 visualize.py my_dataset
+# python3 visualize.py my_dataset_directory_name
 #
 # The figure is saved as figure.pdf in the directory passed as an argument,
 # along with file average_times.txt, showing the average time for each model.
@@ -73,8 +73,21 @@ def get_slice(model, d_min, d_max):
 # Gets the results for a single instance/slice of model CP.
 # [deviation, costs, time]
 def get_slice_cp(instance):
-    # TODO
-    return [0, 0, 0]
+    with open(results_dir_path+"/cp/"+instance) as f:
+        lines = [line.rstrip('\n') for line in f]
+
+    if (len(lines) == 2 or len(lines) == 3):
+        return [None, None, float(lines[-1])]
+
+    try:
+        instance_slice = [float(i) for i in lines[-3].split(',')]
+        instance_slice[0], instance_slice[1] = instance_slice[1], instance_slice[0]
+        instance_slice.append(float(lines[-1]))
+    except ValueError:
+        print("ERROR: unbound constrained variable in "+instance)
+        exit(-1)
+    
+    return instance_slice
 
 
 # Gets the results for a single instance/slice of model IPA.
@@ -118,6 +131,7 @@ def get_slice_lb(instance):
     
     instance_slice = [float(i) for i in lines[2].split(',')][:2]
     instance_slice[0], instance_slice[1] = instance_slice[1], instance_slice[0]
+    instance_slice[1] = int(instance_slice[1]) # Round LB to integer
     instance_slice.append(0)
     
     return instance_slice
@@ -161,11 +175,19 @@ for model in models:
         sorted(models[model], key=operator.itemgetter(0))
 
         # Ensure solutions get increasingly better
-        best = 9999
+        best = 999999
         for i in models[model]:
-            if (i[3] is not None):
+            # No feasible solution found yet
+            if (i[3] is None) and \
+               (best == 999999):
+                pass
+            # Current solution is at least as good as the previous
+            elif (i[3] is not None):
                 i[3] = min(best, i[3])
                 best = i[3]
+            # Infeasible interval
+            elif (i[3] is None):
+                i[3] = best
 
 # Gather plotting information
 plots = {"cp": None,
@@ -200,6 +222,7 @@ fig = plt.figure(figsize = [9.6,4.8])
 plt.ylabel('Objective')
 plt.xlabel('Deviation')
 plt.xticks([i for i in range(0, d_max+1, 1)])
+plt.xlim([0, d_max+1])
 
 for model in models:
     if (models[model] is not None and model != "lb"):
