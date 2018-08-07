@@ -123,17 +123,13 @@ int main(int argc, char* argv[]) {
 
   // Optimize bin load bounds (these bounds can be inferred algebraically)
   IloInt min_load = 0;
-  IloInt max_load = IloIntMax;
-  if (d_max < IloIntMax) {
+  IloInt max_load = IloSum(weights); // The highest possible maximum load
+  if (d_max < IloSum(weights)) { // If d_max is reasonably bounded
     if (strategy == L0_DEVIATION) {
       if (d_max == 0) {
 	// We allow this floor/ceil leeway in case the mean is fractional
 	min_load = floor(mean_load);
 	max_load = ceil(mean_load);
-      }
-      else {
-	min_load = 0;
-	max_load = IloIntMax;
       }
     }
     else if (strategy == L1_DEVIATION) {
@@ -249,9 +245,18 @@ int main(int argc, char* argv[]) {
       IloIntVarArray lower_than_ceil(env, num_bins, 0, 1);
       IloIntVarArray balanced_bins(env, num_bins, 0, 1);
       for (IloInt k=0; k<num_bins; k++) {
-	model.add(higher_than_floor[k] == (w[k] >= mean_load_floor));
-	model.add(lower_than_ceil[k] == (w[k] <= mean_load_ceil));
-	model.add(balanced_bins[k] == (higher_than_floor[k]+lower_than_ceil[k] >= 2));
+	IloInt M1 = IloAbs(max_load-mean_load_floor)+1;
+	IloInt M2 = IloAbs(max_load-mean_load_ceil)+1;
+
+	// RC_EPS is needed in these constraints in case the mean is integral
+	model.add(w[k] >= mean_load_floor - M1*(1-higher_than_floor[k]));
+	model.add(mean_load_floor >= w[k] - M1*(higher_than_floor[k]) + RC_EPS);
+	
+	model.add(w[k] <= mean_load_ceil + M2*(1-lower_than_ceil[k]));
+	model.add(mean_load_ceil <= w[k] + M2*(lower_than_ceil[k]) - RC_EPS);
+	
+	model.add(higher_than_floor[k] + lower_than_ceil[k] + 2*(1-balanced_bins[k]) >= 2);
+	model.add(higher_than_floor[k] + lower_than_ceil[k] - 1 <= 2*(balanced_bins[k]));
       }
 
       global_deviation = num_bins-IloSum(balanced_bins);
@@ -366,7 +371,7 @@ void Help() {
   cout << "-file [myinstance.wsp]"
        << endl;
   cout << "-dmin [minimum cumulative deviation (default unbounded)]\n"
-       << "      (only L1- and L2-deviation take this into account)"
+       << "      (Li-deviation does not take this into account)"
        << endl;
   cout << "-dmax [maximum cumulative deviation (default unbounded)]"
        << endl;
