@@ -23,7 +23,8 @@ results/*
 models/*
 !models/ipa/
 !models/ipa/*
-#models/ipb/ipb
+!models/ipb/
+!models/ipb/*
 
 
 # Paper
