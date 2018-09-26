@@ -13,7 +13,7 @@ CONCERTLIBDIR = $(CONCERTDIR)/lib/$(SYSTEM)/$(LIBFORMAT)
 CPOPTLIBDIR   = $(CPOPTDIR)/lib/$(SYSTEM)/$(LIBFORMAT)
 
 CCLNDIRS  = -L$(CPLEXLIBDIR) -L$(CONCERTLIBDIR) -L$(CPOPTLIBDIR)
-CCLNFLAGS = -lcp -lconcert -lilocplex -lcplex -lm -lpthread -ldl
+CCLNFLAGS = -lcp -lconcert -lilocplex -lcplex -lm -lpthread -ldl -Wall -std=c++17
 
 CPLEXINCDIR   = $(CPLEXDIR)/include
 CONCERTINCDIR = $(CONCERTDIR)/include
