@@ -4,7 +4,7 @@
  * 
  * In this modified model the deviation can be bounded, which is needed to
  * construct the Pareto set of solutions. This model also considers multiple
- * load balancing strategies.
+ * load balancing norms.
  */
 
 
@@ -12,16 +12,15 @@
 #include <ilcplex/ilocplex.h>
 #include <iostream>
 #include <stdlib.h>
+
+
 #define RC_EPS 1.0e-6
 #define RC_EPS2 1.0e-3
 #define CONFLICT 9999 // IloIntMax causes overflow
-#define L0_DEVIATION 0
-#define L1_DEVIATION 1
-#define L2_DEVIATION 2
-#define Li_DEVIATION 3
-// #define MINMAX 4
-// #define MAXMIN 5
-// #define SPREAD 6
+#define L0_NORM 0
+#define L1_NORM 1
+#define L2_NORM 2
+#define Li_NORM 3
 
 
 ILOSTLBEGIN
@@ -39,11 +38,11 @@ void Help();
 
 
 int main(int argc, char* argv[]) {
-  char* filename = NULL;
+  char* filename = nullptr;
 
   IloInt d_min = 0; // Lower bound on cumulative deviation
   IloInt d_max = IloIntMax; // Upper bound on cumulative deviation
-  IloInt strategy = -1; // Load balancing strategy
+  IloInt norm = -1; // Load balancing norm
   IloInt num_bins = -1;
   IloNum time_limit = IloNumMax;
     
@@ -68,9 +67,9 @@ int main(int argc, char* argv[]) {
       i++;
       d_max = atoi(argv[i]);
     }
-    else if (!strcmp(argv[i], "-strategy")) {
+    else if (!strcmp(argv[i], "-norm")) {
       i++;
-      strategy = atoi(argv[i]);
+      norm = atoi(argv[i]);
     }
     else if (!strcmp(argv[i], "-timelimit")) {
       i++;
@@ -81,7 +80,7 @@ int main(int argc, char* argv[]) {
   if ((num_bins <= 0) ||
       (d_min < 0) ||
       (d_max < d_min) ||
-      (strategy < 0 || strategy > 3) ||
+      (norm < 0 || norm > 3) ||
       (time_limit < 0)) {
     Help();
     exit(0);
@@ -125,26 +124,26 @@ int main(int argc, char* argv[]) {
   IloInt min_load = 0;
   IloInt max_load = IloSum(weights); // The highest possible maximum load
   if (d_max < IloSum(weights)) { // If d_max is reasonably bounded
-    if (strategy == L0_DEVIATION) {
+    if (norm == L0_NORM) {
       if (d_max == 0) {
 	// We allow this floor/ceil leeway in case the mean is fractional
 	min_load = floor(mean_load);
 	max_load = ceil(mean_load);
       }
     }
-    else if (strategy == L1_DEVIATION) {
+    else if (norm == L1_NORM) {
       min_load = max((IloInt)0,
 		     (IloInt)ceil(mean_load-(IloNum)d_max/2));
       max_load = floor(mean_load+(IloNum)d_max/2);
     }
-    else if (strategy == L2_DEVIATION) {
+    else if (norm == L2_NORM) {
       min_load = max((IloInt)0,
 		     (IloInt)ceil(mean_load-
 				  sqrt(d_max*(IloNum)(num_bins-1)/num_bins)));
       max_load = (IloInt)floor(mean_load+sqrt(d_max*
 					      (IloNum)(num_bins-1)/num_bins));
     }
-    else if (strategy == Li_DEVIATION) {
+    else if (norm == Li_NORM) {
       min_load = max((IloInt)0,
 		     (IloInt)ceil(mean_load-d_max));
       max_load = (IloInt)floor(mean_load+d_max);
@@ -235,18 +234,18 @@ int main(int argc, char* argv[]) {
     IloNumExpr global_deviation(env);
     
     /***************************************************************************
-     * L0_DEVIATION
+     * L0_NORM
      **************************************************************************/
 
-    if (strategy == L0_DEVIATION) {
+    if (norm == L0_NORM) {
       IloInt mean_load_floor = floor(mean_load);
       IloInt mean_load_ceil = ceil(mean_load);
       IloIntVarArray higher_than_floor(env, num_bins, 0, 1);
       IloIntVarArray lower_than_ceil(env, num_bins, 0, 1);
       IloIntVarArray balanced_bins(env, num_bins, 0, 1);
       for (IloInt k=0; k<num_bins; k++) {
-	IloInt M1 = IloAbs(max_load-mean_load_floor)+1;
-	IloInt M2 = IloAbs(max_load-mean_load_ceil)+1;
+	IloInt M1 = IloAbs(max_load-mean_load_floor);
+	IloInt M2 = IloAbs(max_load-mean_load_ceil);
 
 	// RC_EPS is needed in these constraints in case the mean is integral
 	model.add(w[k] >= mean_load_floor - M1*(1-higher_than_floor[k]));
@@ -255,22 +254,22 @@ int main(int argc, char* argv[]) {
 	model.add(w[k] <= mean_load_ceil + M2*(1-lower_than_ceil[k]));
 	model.add(mean_load_ceil <= w[k] + M2*(lower_than_ceil[k]) - RC_EPS);
 	
-	model.add(higher_than_floor[k] + lower_than_ceil[k] + 2*(1-balanced_bins[k]) >= 2);
-	model.add(higher_than_floor[k] + lower_than_ceil[k] - 1 <= 2*(balanced_bins[k]));
+	model.add(higher_than_floor[k] + lower_than_ceil[k] - 2*balanced_bins[k] >= 0);
+	model.add(higher_than_floor[k] + lower_than_ceil[k] - 2*balanced_bins[k] <= 1);
       }
 
       global_deviation = num_bins-IloSum(balanced_bins);
       model.add(global_deviation >= d_min);
       model.add(global_deviation <= d_max);
       
-      objective.setExpr(IloSum(sum_costs) + RC_EPS2*global_deviation);
+      objective.setExpr(IloSum(sum_costs));
     }
     
     /***************************************************************************
-     * L1_DEVIATION
+     * L1_NORM
      **************************************************************************/
     
-    if (strategy == L1_DEVIATION) {
+    if (norm == L1_NORM) {
       global_deviation = IloSum(o);
       model.add(global_deviation >= d_min);
       model.add(global_deviation <= d_max);
@@ -279,28 +278,28 @@ int main(int argc, char* argv[]) {
     }
 
     /***************************************************************************
-     * L2_DEVIATION
+     * L2_NORM
      **************************************************************************/
     
-    if (strategy == L2_DEVIATION) {
+    if (norm == L2_NORM) {
       cout << "ERROR: This model does not support L2-deviation.\n"
-      	   << "With this strategy, the problem becomes a mixed-integer "
-      	   << "quadratically constrained and non-convex problem, which CPLEX "
-	   << "does not handle."
+      	   << "With this norm, the problem becomes a mixed-integer "
+      	   << "quadratically constrained and nonconvex problem, which CPLEX "
+      	   << "does not handle."
       	   << endl;
       exit(0);
     }
 
     /***************************************************************************
-     * Li_DEVIATION
+     * Li_NORM
      **************************************************************************/
     
-    if (strategy == Li_DEVIATION) {
-      IloNumVar y = IloNumVar(env, d_min, d_max, ILOFLOAT);
+    if (norm == Li_NORM) {
+      IloNumVar o_max = IloNumVar(env, 0, d_max, ILOFLOAT);
       for (IloInt k=0; k<num_bins; k++) {
-      	model.add(o[k] <= y);
+      	model.add(o[k] <= o_max);
       }
-      global_deviation = y;
+      global_deviation = o_max;
       
       objective.setExpr(IloSum(sum_costs) + RC_EPS2*global_deviation);
     }
@@ -321,13 +320,13 @@ int main(int argc, char* argv[]) {
     }
     
     /*
-     * #bins,strategy,dmin,dmax
+     * #bins,norm,dmin,dmax
      * load1,...,loadk
      * costs,deviation,time
      */
     cout << num_bins
 	 << ","
-	 << strategy
+	 << norm
 	 << ","
 	 << d_min
 	 << ","
@@ -339,7 +338,7 @@ int main(int argc, char* argv[]) {
       (k != num_bins-1) ? cout << "," : cout << "\n";
     }
 
-    cout << round(solver.getObjValue()) // round() to remove the RC_EPS2 artifact
+    cout << IloRound(solver.getObjValue()) // IloRound() to remove the RC_EPS2 artifact
 	 << ","
 	 << solver.getValue(global_deviation)
 	 << ","
@@ -361,7 +360,7 @@ int main(int argc, char* argv[]) {
 
 
 void Help() {
-  cout << "At a minimum, a filename, a number of bins, and a strategy must "
+  cout << "At a minimum, a filename, a number of bins, and a norm must "
        << "be specified."
        << endl;
   cout << "./ipa [options]"
@@ -375,13 +374,13 @@ void Help() {
        << endl;
   cout << "-dmax [maximum cumulative deviation (default unbounded)]"
        << endl;
-  cout << "-strategy [0 for L0-deviation,\n"
-       << "           1 for L1-deviation,\n"
-       << "           2 for L2-deviation,\n"
-       << "           3 for Li-deviation]"
+  cout << "-norm [0 for L0-deviation,\n"
+       << "       1 for L1-deviation,\n"
+       << "       2 for L2-deviation,\n"
+       << "       3 for Li-deviation]"
        << endl;
   cout << "-timelimit [cutoff in seconds (default unlimited)]"
        << endl;
-  cout << "Example: ./ipa -file myinstance.wsp -bins 22 -strategy 1"
+  cout << "Example: ./ipa -file myinstance.wsp -bins 22 -norm 1"
        << endl;
 }
