@@ -22,7 +22,7 @@ CPOPTINCDIR   = $(CPOPTDIR)/include
 CCFLAGS = $(CCOPT) -I$(CPLEXINCDIR) -I$(CONCERTINCDIR) -I$(CPOPTINCDIR)
 
 all:
-	$(CCC) main.cc problem.cc $(CCFLAGS) $(CCLNDIRS) -o ipb $(CCLNFLAGS)
+	$(CCC) main.cc problem.cc node.cc $(CCFLAGS) $(CCLNDIRS) -o ipb $(CCLNFLAGS)
 
 clean:
 	rm *.o ipb

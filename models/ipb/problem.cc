@@ -16,17 +16,13 @@ Problem::Problem(char* filename,
   master_problem_ = IloModel(env_);
   master_solver_ = IloCplex(master_problem_);
   master_solver_.setOut(env_.getNullStream()); // Supress Cplex output
-  if (norm_ == L0_NORM || norm_ == L1_NORM || norm_ == L2_NORM) {
-    master_objective_ = IloAdd(master_problem_, IloMinimize(env_));
-  }
-  else if (norm_ == Li_NORM) {
-    master_objective_ = IloAdd(master_problem_, IloMinimize(env_));
-  }
+  master_objective_ = IloAdd(master_problem_, IloMinimize(env_));
 
   weights_ = IloIntArray(env_);
   costs_ = IloArray<IloIntArray>(env_);
   columns_ = IloNumVarArray(env_);
   patterns_ = IloArray<IloNumArray>(env_);
+  pattern_costs_ = IloIntArray(env_);
   pattern_deviations_ = IloNumArray(env_);
 
   LoadData(filename);
@@ -56,18 +52,56 @@ Problem::Problem(char* filename,
     }
   }
 
+  constrain_column_at_0_ = IloConstraintArray(env_);
+  constrain_column_at_1_ = IloConstraintArray(env_);
+
   GenerateInitialColumns();
+  SolveRelaxation();
+}
 
-  if (subproblem_type_ == IP_SUBPROBLEM) {
-    SolveRelaxationIp();
-  }
-  else if (subproblem_type_ == CP_SUBPROBLEM1) {
-    SolveRelaxationCp1();
-  }
-  else if (subproblem_type_ == CP_SUBPROBLEM2) {
-    SolveRelaxationCp2();
+
+/******************************************************************************/
+
+
+Problem::Problem(Problem& problem) {
+  master_problem_ = IloModel(env_);
+  master_solver_ = IloCplex(master_problem_);
+  master_solver_.setOut(env_.getNullStream()); // Supress Cplex output
+  master_objective_ = IloAdd(master_problem_, IloMinimize(env_));
+
+  norm_ = problem.norm_;
+  num_items_ = problem.num_items_;
+  num_bins_ = problem.num_bins_;
+  weights_ = problem.weights_;
+  costs_ = problem.costs_;
+  min_load_ = problem.min_load_;
+  max_load_ = problem.max_load_;
+  mean_load_ = problem.mean_load_;
+  d_min_ = problem.d_min_;
+  d_max_ = problem.d_max_;
+  patterns_ = problem.patterns_;
+  pattern_costs_ = problem.pattern_costs_;
+  pattern_deviations_ = problem.pattern_deviations_;
+  
+  x_ = IloAdd(master_problem_, IloRangeArray(env_,
+					     num_items_,
+					     1,
+					     1));
+  
+  columns_ = IloNumVarArray(env_);
+  for (IloInt i=0; i<patterns_.getSize(); i++) {
+    IloNum pattern_cost = ComputePatternCost(patterns_[i]);
+    columns_.add(IloNumVar(master_objective_(pattern_cost)+x_(patterns_[i])));
   }
 
+  zeta_ = IloAdd(master_problem_, IloRange(env_, 0, 0));
+  if (norm_ == L0_NORM || norm_ == L1_NORM || norm_ == L2_NORM) {
+    delta_ = IloAdd(master_problem_, IloRange(env_, 0, 0));
+    gamma_ = IloAdd(master_problem_, IloRange(env_, 0, 0));
+  }
+  
+  lower_bound_ = problem.lower_bound_;
+  lower_bound_deviation_ = problem.lower_bound_deviation_;
   SolveIntegrality();
 }
 
@@ -77,6 +111,92 @@ Problem::Problem(char* filename,
 
 Problem::~Problem() {
   env_.end();
+}
+
+
+/******************************************************************************/
+
+
+void Problem::SolveWithPartiallySetColumns(std::vector<IloInt> columns_set_at_0,
+					   std::vector<IloInt> columns_set_at_1) {
+  UnsetAllColumns();
+  SetColumns(columns_set_at_0, columns_set_at_1);
+  SolveRelaxation();
+}
+
+
+/******************************************************************************/
+
+
+IloInt Problem::GetFractionalColumn() {
+  // Heuristic: Find the lowest cost fractional column
+  IloInt index = -1;
+  IloNum cost = IloIntMax;
+  for (IloInt i=0; i<columns_.getSize(); i++) {
+    if (master_solver_.getValue(columns_[i]) >= 0+RC_EPS &&
+	master_solver_.getValue(columns_[i]) <= 1-RC_EPS) {
+      if (cost > pattern_costs_[i]) {
+      	index = i;
+      	cost = pattern_costs_[i];
+      }
+    }
+  }
+  return index;
+}
+
+
+/******************************************************************************/
+
+
+IloInt Problem::IsFeasible() {
+  return is_feasible_;
+}
+
+
+/******************************************************************************/
+
+
+IloInt Problem::GetLowerBound() {
+  return lower_bound_;
+}
+
+
+/******************************************************************************/
+
+
+IloNum Problem::GetLowerBoundDeviation() {
+  return lower_bound_deviation_;
+}
+
+
+/******************************************************************************/
+
+
+IloInt Problem::GetUpperBound() {
+  return upper_bound_;
+}
+
+
+/******************************************************************************/
+
+
+IloNum Problem::GetUpperBoundDeviation() {
+  return upper_bound_deviation_;
+}
+
+
+/******************************************************************************/
+
+
+std::vector<IloInt> Problem::GetOptimalColumns() {
+  std::vector<IloInt> optimal_columns;
+  for (IloInt i=0; i<columns_.getSize(); i++) {
+    // IloRound() because some columns are almost at 0 but not quite
+    for (IloInt j=0; j<IloRound(master_solver_.getValue(columns_[i])); j++) {
+      optimal_columns.push_back(IloScalProd(patterns_[i], weights_));
+    }
+  }
+  return optimal_columns;
 }
 
 
@@ -231,8 +351,7 @@ void Problem::GenerateInitialColumns() {
 	 << ","
 	 << subproblem_type_
 	 << ","
-	 << (chrono::duration<double>(chrono::high_resolution_clock::now()
-				      - time_start_).count())
+	 << (chrono::duration<double>(chrono::high_resolution_clock::now()-time_start_).count())
 	 << endl;
     exit(0);
   }
@@ -248,7 +367,7 @@ void Problem::GenerateInitialColumns() {
 					   num_bins_,
 					   IloSum(columns_),
 					   num_bins_));
-
+  
   // Add the new columns to the model
   for (IloInt i=0; i<num_bins_; i++) {
     IloNumArray new_pattern(env_, num_items_);
@@ -261,9 +380,14 @@ void Problem::GenerateInitialColumns() {
     IloNum pattern_cost = ComputePatternCost(new_pattern);
     IloNum pattern_deviation = ComputePatternDeviation(new_pattern);
     pattern_deviations_.add(pattern_deviation);
+    pattern_costs_.add(pattern_cost);
     columns_.add(IloNumVar(master_objective_(pattern_cost)+x_(new_pattern)));
+    master_problem_.add(columns_[i] >= 0); // Ensures the IP subproblem doesn't use negative columns
+    constrain_column_at_0_.add(IloConstraint(columns_[columns_.getSize()-1] == 0));
+    constrain_column_at_1_.add(IloConstraint(columns_[columns_.getSize()-1] >= 1)); // >= since an empty bin can be used many times
   }
-
+  
+  
   // Constraints (master problem, except for Li_NORM): Cumulative deviation is within d_min and d_max bounds
   if (norm_ == L0_NORM || norm_ == L1_NORM || norm_ == L2_NORM) {
     // Dummy constraints must be introduced for UpdateConstraints() to work properly
@@ -275,8 +399,8 @@ void Problem::GenerateInitialColumns() {
 
 
 /******************************************************************************/
-
-
+    
+  
 void Problem::UpdateConstraints() {
   // Update the constraints by taking into account newly added columns
   master_problem_.remove(zeta_);
@@ -336,7 +460,11 @@ IloBool Problem::AddNewColumn(IloNumArray new_pattern) {
     IloNum pattern_cost = ComputePatternCost(new_pattern);
     IloNum pattern_deviation = ComputePatternDeviation(new_pattern);
     pattern_deviations_.add(pattern_deviation);
+    pattern_costs_.add(pattern_cost);
     columns_.add(IloNumVar(master_objective_(pattern_cost)+x_(new_pattern)));
+    master_problem_.add(columns_[columns_.getSize()-1] >= 0); // Ensures the IP subproblem doesn't use negative columns
+    constrain_column_at_0_.add(IloConstraint(columns_[columns_.getSize()-1] == 0));
+    constrain_column_at_1_.add(IloConstraint(columns_[columns_.getSize()-1] == 1));
     return IloTrue;
   }
   return IloFalse;
@@ -347,10 +475,12 @@ IloBool Problem::AddNewColumn(IloNumArray new_pattern) {
 
 
 void Problem::UpdateLowerBounds() {
-  lower_bound_ = master_solver_.getObjValue();
+  // We can round up since the optimal value is always integral
+  lower_bound_ = (IloInt)IloCeil(master_solver_.getObjValue());
   
   if (norm_ == L0_NORM || norm_ == L1_NORM || norm_ == L2_NORM) {
-    lower_bound_deviation_ = master_solver_.getValue(IloScalProd(columns_, pattern_deviations_));
+    lower_bound_deviation_ = master_solver_.getValue(IloScalProd(columns_,
+								 pattern_deviations_));
   }
   else if (norm_ == Li_NORM) {
     lower_bound_deviation_ = -1;
@@ -367,10 +497,55 @@ void Problem::UpdateLowerBounds() {
 /******************************************************************************/
 
 
+void Problem::UnsetAllColumns() {
+  for (IloInt i=0; i<columns_.getSize(); i++) {
+    master_problem_.remove(constrain_column_at_0_[i]);
+    master_problem_.remove(constrain_column_at_1_[i]);
+  }
+}
+
+
+/******************************************************************************/
+
+
+void Problem::SetColumns(std::vector<IloInt> to_be_set_at_0, std::vector<IloInt> to_be_set_at_1) {
+  for (IloInt i=0; i<(IloInt)to_be_set_at_0.size(); i++) {
+    master_problem_.add(constrain_column_at_0_[to_be_set_at_0[i]]);
+  }
+  for (IloInt i=0; i<(IloInt)to_be_set_at_1.size(); i++) {
+    master_problem_.add(constrain_column_at_1_[to_be_set_at_1[i]]);
+  }
+}
+
+
+/******************************************************************************/
+
+
+void Problem::SolveRelaxation() {
+  if (subproblem_type_ == IP_SUBPROBLEM) {
+    SolveRelaxationIp();
+  }
+  else if (subproblem_type_ == CP_SUBPROBLEM1) {
+    SolveRelaxationCp1();
+  }
+  else if (subproblem_type_ == CP_SUBPROBLEM2) {
+    SolveRelaxationCp2();
+  }
+}
+
+
+/******************************************************************************/
+
+
 void Problem::SolveRelaxationIp() {
   while (IloTrue) {
     UpdateConstraints();
     master_solver_.solve();
+    is_feasible_ = IloTrue;
+    if (!master_solver_.isPrimalFeasible()) {
+      is_feasible_ = IloFalse;
+      break;
+    }
     UpdateLowerBounds();
       
     if ((chrono::duration<double>(chrono::high_resolution_clock::now()-time_start_).count()) > time_limit_) break;
@@ -510,6 +685,11 @@ void Problem::SolveRelaxationCp1() {
   while (IloTrue) {
     UpdateConstraints();
     master_solver_.solve();
+    is_feasible_ = IloTrue;
+    if (!master_solver_.isPrimalFeasible()) {
+      is_feasible_ = IloFalse;
+      break;
+    }
     UpdateLowerBounds();
       
     if ((chrono::duration<double>(chrono::high_resolution_clock::now()-time_start_).count()) > time_limit_) break;
@@ -625,6 +805,11 @@ void Problem::SolveRelaxationCp2() {
   while (IloTrue) {
     UpdateConstraints();
     master_solver_.solve();
+    is_feasible_ = IloTrue;
+    if (!master_solver_.isPrimalFeasible()) {
+      is_feasible_ = IloFalse;
+      break;
+    }
     UpdateLowerBounds();
       
     if ((chrono::duration<double>(chrono::high_resolution_clock::now()-time_start_).count()) > time_limit_) break;
@@ -712,7 +897,7 @@ void Problem::SolveRelaxationCp2() {
       }
     }
 	
-    // Make sure pairwise variables are NOT in the table of allowed assignments
+    // Make sure pairwise variables are NOT in the table of forbidden assignments
     for (IloInt i=0; i<z_size-1; i++) {
       for (IloInt j=i+1; j<z_size; j++) {
 	sub_problem.add(IloForbiddenAssignments(env_, z[i], z[j], table));
@@ -722,7 +907,7 @@ void Problem::SolveRelaxationCp2() {
     // Dual values
     IloNumArray y_dummy(env_, num_items_);
     master_solver_.getDuals(y_dummy, x_);
-    y_dummy.add(0);
+    y_dummy.add(0); // Dummy item
     IloNum zeta = master_solver_.getDual(zeta_);
     IloNum delta = 0;
     IloNum gamma = 0;
@@ -808,6 +993,32 @@ void Problem::SolveRelaxationCp2() {
 /******************************************************************************/
 
 
+void Problem::SolveIntegrality() {
+  master_problem_.add(IloConversion(env_, columns_, ILOINT));
+  UpdateConstraints();
+  master_solver_.solve();
+  
+  upper_bound_ = (IloInt)master_solver_.getObjValue();
+  
+  if (norm_ == L0_NORM || norm_ == L1_NORM || norm_ == L2_NORM) {
+    upper_bound_deviation_ = master_solver_.getValue(IloScalProd(columns_,
+								 pattern_deviations_));
+  }
+  else if (norm_ == Li_NORM) {
+    upper_bound_deviation_ = -1;
+    for (IloInt i=0; i<columns_.getSize(); i++) {
+      if (master_solver_.getValue(columns_[i]) >= 1-RC_EPS) {
+	upper_bound_deviation_ = IloMax(lower_bound_deviation_,
+					pattern_deviations_[i]);
+      }
+    }
+  }
+}
+
+
+/******************************************************************************/
+
+
 IloNum Problem::ComputePatternCost(IloNumArray pattern) {
   IloNum cost = 0;
   for (IloInt i=0; i<num_items_; i++) {
@@ -844,78 +1055,4 @@ IloNum Problem::ComputePatternDeviation(IloNumArray pattern) {
   }
   
   return deviation;
-}
-
-
-/******************************************************************************/
-
-
-void Problem::SolveIntegrality() {
-  master_problem_.add(IloConversion(env_, columns_, ILOINT));
-  UpdateConstraints();
-  master_solver_.solve();
-  
-  upper_bound_ = master_solver_.getObjValue();
-  
-  if (norm_ == L0_NORM || norm_ == L1_NORM || norm_ == L2_NORM) {
-    upper_bound_deviation_ = master_solver_.getValue(IloScalProd(columns_,
-								 pattern_deviations_));
-  }
-  else if (norm_ == Li_NORM) {
-    upper_bound_deviation_ = -1;
-    for (IloInt i=0; i<columns_.getSize(); i++) {
-      if (master_solver_.getValue(columns_[i]) >= 1-RC_EPS) {
-	upper_bound_deviation_ = IloMax(lower_bound_deviation_,
-					pattern_deviations_[i]);
-      }
-    }
-  }
-}
-
-
-/******************************************************************************/
-
-
-void Problem::PrintSolution() {
-/*
- * #bins,norm,dmin,dmax,SPtype,#columns
- * load1,...,loadk
- * LBcosts,LBdeviation,UBcosts,UBdeviation,time
- */
-  cout << num_bins_
-       << ","
-       << norm_
-       << ","
-       << d_min_
-       << ","
-       << d_max_
-       << ","
-       << subproblem_type_
-       << ","
-       << columns_.getSize()
-       << endl;
-
-  IloBool first_bin = IloTrue;
-  for (IloInt i=0; i<columns_.getSize(); i++) {
-    // IloRound() because some columns are almost at 0 but not quite
-    for (IloInt j=0; j<IloRound(master_solver_.getValue(columns_[i])); j++) {
-      if (first_bin == IloFalse) {
-    	cout << ",";
-      }
-      cout << IloScalProd(patterns_[i], weights_);
-      first_bin = IloFalse;
-    }
-  }
-  cout << endl;
-  
-  cout << lower_bound_
-       << ","
-       << lower_bound_deviation_
-       << ","
-       << upper_bound_
-       << ","
-       << upper_bound_deviation_
-       << ","
-       << (chrono::duration<double>(chrono::high_resolution_clock::now()-time_start_).count())
-       << endl;
 }

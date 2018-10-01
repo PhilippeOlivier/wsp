@@ -6,6 +6,7 @@
 #include <chrono>
 #include <ilcp/cp.h>
 #include <ilcplex/ilocplex.h>
+#include <vector>
 
 
 #define RC_EPS 1.0e-6
@@ -31,8 +32,18 @@ public:
 	  IloInt d_min,
 	  IloInt d_max,
 	  IloNum time_limit);
+  Problem(Problem& problem);
   ~Problem();
-  void PrintSolution();
+
+  void SolveWithPartiallySetColumns(std::vector<IloInt> columns_set_at_0,
+				    std::vector<IloInt> columns_set_at_1);
+  IloInt GetFractionalColumn(); // Returns -1 if no column is fractional
+  IloInt IsFeasible();
+  IloInt GetLowerBound();
+  IloNum GetLowerBoundDeviation();
+  IloInt GetUpperBound();
+  IloNum GetUpperBoundDeviation();
+  std::vector<IloInt> GetOptimalColumns();
 
 private:
   void LoadData(char* filename);
@@ -44,7 +55,11 @@ private:
   void UpdateConstraints(); // Must be updated after new columns are introduced
   IloBool AddNewColumn(IloNumArray new_pattern); // Returns IloTrue if the new pattern is added as a column
   void UpdateLowerBounds();
+
+  void UnsetAllColumns();
+  void SetColumns(std::vector<IloInt> to_be_set_at_0, std::vector<IloInt> to_be_set_at_1);
   
+  void SolveRelaxation();
   void SolveRelaxationIp();
   void SolveRelaxationCp1();
   void SolveRelaxationCp2();
@@ -74,6 +89,7 @@ private:
   IloObjective master_objective_;
   IloNumVarArray columns_;
   IloArray<IloNumArray> patterns_;
+  IloIntArray pattern_costs_;
   IloNumArray pattern_deviations_;
   
   // Common variables for all norms
@@ -82,11 +98,16 @@ private:
   IloRange zeta_;
   IloRange gamma_;
   IloRange delta_;
+
+  // Branch and price variables
+  IloConstraintArray constrain_column_at_0_;
+  IloConstraintArray constrain_column_at_1_;
+  IloBool is_feasible_;
   
-  // Output variables
-  IloNum lower_bound_;
+  // Solution
+  IloInt lower_bound_;
   IloNum lower_bound_deviation_;
-  IloNum upper_bound_;
+  IloInt upper_bound_;
   IloNum upper_bound_deviation_;
 };
 
